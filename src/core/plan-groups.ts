@@ -45,7 +45,7 @@ export function planGroups(
   state: State,
   trigger: Trigger,
   owned: ReadonlySet<number>,
-): { ops: Op[]; pending: number[] } {
+): { ops: Op[]; pending: number[]; held: number[] } {
   const minTabs = Math.max(2, settings.minTabs);
   const eligible = snapshot.tabs.filter(
     (tab) => !tab.pinned && (tab.groupId === null || owned.has(tab.groupId)),
@@ -119,9 +119,13 @@ export function planGroups(
     }
   }
   const dissolved = new Set<number>();
+  const held: number[] = [];
   for (const members of membersOfOwned.values()) {
     const [only] = members;
-    if (members.length === 1 && only !== activeId) {
+    if (members.length !== 1) continue;
+    if (only === activeId) {
+      held.push(only!);
+    } else {
       targets.set(only!, null);
       dissolved.add(only!);
     }
@@ -137,7 +141,7 @@ export function planGroups(
     )
     .map((tab) => tab.id);
 
-  return { ops: toOps(eligible, targets), pending };
+  return { ops: toOps(eligible, targets), pending, held };
 }
 
 function toOps(eligible: readonly TabInfo[], targets: ReadonlyMap<number, Target>): Op[] {

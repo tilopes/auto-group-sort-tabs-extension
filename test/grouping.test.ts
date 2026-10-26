@@ -190,6 +190,26 @@ test("closing tabs until one is left dissolves the group", async () => {
   assert.deepEqual(w.layout(), ["github.com/a", "other.org"]);
 });
 
+test("a group reduced to its active tab dissolves once the user switches away", async () => {
+  const w = scenario([
+    "github.com/a",
+    "github.com/b",
+    "github.com/c",
+    { url: "other.org", active: true },
+  ]);
+  await w.organizeNow();
+
+  w.browser.activate("github.com/a");
+  w.browser.closeTab("github.com/c");
+  w.browser.closeTab("github.com/b");
+  await w.settle();
+  assert.deepEqual(w.layout(), [{ group: "github.com", tabs: ["github.com/a"] }, "other.org"]);
+
+  w.browser.activate("other.org");
+  await w.settle();
+  assert.deepEqual(w.layout(), ["github.com/a", "other.org"]);
+});
+
 test("navigating to a domain with an existing group joins it, even below the threshold", async () => {
   const w = scenario([
     "github.com/a",

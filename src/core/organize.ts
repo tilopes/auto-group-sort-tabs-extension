@@ -9,7 +9,7 @@ import type { OrganizeInput, OrganizeResult } from "./types.ts";
 export function organize({ snapshot, settings, state, trigger }: OrganizeInput): OrganizeResult {
   const { owned, adopted } = resolveOwnership(snapshot, settings, state);
   const manual = trigger.mode === "manual";
-  const deferred =
+  const deferred: number[] =
     !manual && snapshot.focused
       ? snapshot.tabs
           .filter(
@@ -22,6 +22,8 @@ export function organize({ snapshot, settings, state, trigger }: OrganizeInput):
   if (manual || settings.autoGroup) {
     const grouping = planGroups(snapshot, settings, state, trigger, owned);
     pending = grouping.pending;
+    // A lone active tab keeps its group for now; retry once the user switches away.
+    deferred.push(...grouping.held.filter((id) => !deferred.includes(id)));
     if (grouping.ops.length) return { ops: grouping.ops, adopted, pending, deferred };
   }
   const ops =

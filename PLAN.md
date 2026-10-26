@@ -391,7 +391,7 @@ any M1 spec.
   run failed; the scheduler retries it (events merged back) up to 3 times, then gives up until
   the next event.
 - **Scheduler:** trailing debounce 300 ms, max wait 2 s, one run at a time per window, events
-  arriving mid-run cause one re-run. Dirty active tabs reported as `deferred` are retried on
+  arriving mid-run cause one re-run. Closing a tab (except with its window) also schedules a run, so groups reduced to one tab dissolve (AC-3). Dirty active tabs reported as `deferred` are retried on
   `tabs.onActivated`.
 - **Executor:** passes `windowId` everywhere; an empty or falsy `tabs.move` result throws
   (Firefox refusal); a group that cannot be titled is ungrouped again before the error is raised.
@@ -426,7 +426,7 @@ any M1 spec.
   The shell re-snapshots and calls again until `ops` is empty. This converges regardless of
   exact browser placement semantics. Op `index` means the final index (remove, then insert).
   The result also carries `adopted` (group ids the shell should record in state) and
-  `deferred` (dirty active tabs to retry after the user switches tab).
+  `deferred` (dirty active tabs, and the active tab of a group reduced to one tab, to retry after the user switches tab).
 - **`State`** is `{ groups: Record<groupId, { createdAt, title }>, pending: number[] }`. A group stays ours only
   while its title equals the recorded title (rename ⇒ user's group). Groups with no record are
   adopted when their title equals a key we would generate for one of their tabs.
