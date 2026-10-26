@@ -96,7 +96,7 @@ export class FakeBrowser {
 
   readonly onCreated = new FakeEvent<[FakeTab]>();
   readonly onUpdated = new FakeEvent<[number, { url?: string; groupId?: number }, FakeTab]>();
-  readonly onRemoved = new FakeEvent<[number]>();
+  readonly onRemoved = new FakeEvent<[number, { windowId: number; isWindowClosing: boolean }]>();
   readonly onActivated = new FakeEvent<[{ tabId: number; windowId: number }]>();
   readonly onGroupRemoved = new FakeEvent<[{ id: number }]>();
   readonly onWindowCreated = new FakeEvent<[{ id: number }]>();
@@ -184,14 +184,17 @@ export class FakeBrowser {
     this.onActivated.fire({ tabId: target.id, windowId: target.windowId });
   }
 
-  closeTab(tabId: number | string) {
+  closeTab(tabId: number | string, { windowClosing = false } = {}) {
     const tab = this.#tab(this.idOf(tabId));
     this.#tabs.splice(tab.index, 1);
     this.#reindex();
     this.#dropEmptyGroups();
-    if (tab.active && this.#tabs.length)
-      this.#tabs[Math.min(tab.index, this.#tabs.length - 1)]!.active = true;
-    this.onRemoved.fire(tab.id);
+    if (tab.active && this.#tabs.length) {
+      const next = this.#tabs[Math.min(tab.index, this.#tabs.length - 1)]!;
+      next.active = true;
+      this.onActivated.fire({ tabId: next.id, windowId: next.windowId });
+    }
+    this.onRemoved.fire(tab.id, { windowId: tab.windowId, isWindowClosing: windowClosing });
   }
 
   /** User drags a tab to a position (final index). Not recorded as an API call. */

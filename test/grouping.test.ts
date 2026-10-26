@@ -172,6 +172,24 @@ test("a group survives down to two tabs and dissolves when one is left", async (
   );
 });
 
+test("closing tabs until one is left dissolves the group", async () => {
+  const w = scenario([
+    "github.com/a",
+    "github.com/b",
+    "github.com/c",
+    { url: "other.org", active: true },
+  ]);
+  await w.organizeNow();
+
+  w.browser.closeTab("github.com/c");
+  await w.settle();
+  assert.deepEqual(w.layout()[0], { group: "github.com", tabs: ["github.com/a", "github.com/b"] });
+
+  w.browser.closeTab("github.com/b");
+  await w.settle();
+  assert.deepEqual(w.layout(), ["github.com/a", "other.org"]);
+});
+
 test("navigating to a domain with an existing group joins it, even below the threshold", async () => {
   const w = scenario([
     "github.com/a",

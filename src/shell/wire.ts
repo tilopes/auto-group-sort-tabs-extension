@@ -98,8 +98,10 @@ export function wire(api: BrowserApi) {
 
   api.tabs.onActivated.addListener(({ windowId }) => scheduler.retryDeferred(windowId));
 
-  api.tabs.onRemoved.addListener(async (tabId) => {
+  api.tabs.onRemoved.addListener(async (tabId, { windowId, isWindowClosing }) => {
     scheduler.forgetTab(tabId);
+    // A group left with a single tab dissolves, so closing tabs needs a run too.
+    if (!isWindowClosing) scheduler.markChanged(windowId);
     await stateStore.update((state) => {
       const { [tabId]: _gone, ...keys } = state.keys;
       return { ...state, keys, pending: state.pending.filter((id) => id !== tabId) };

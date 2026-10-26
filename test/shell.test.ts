@@ -224,3 +224,18 @@ test("a tab that leaves its domain after the worker was stopped is organised aga
   await w.settle();
   assert.deepEqual(w.layout(), [githubGroup("a", "b"), "x.org", "gitlab.com"]);
 });
+
+test("closing the tabs of a window that is closing does no work", async () => {
+  const w = scenario([
+    "github.com/a",
+    "github.com/b",
+    "github.com/c",
+    { url: "x.org", active: true },
+  ]);
+  await w.organizeNow();
+  const before = w.browser.mutations().length;
+  w.browser.closeTab("github.com/c", { windowClosing: true });
+  w.browser.closeTab("github.com/b", { windowClosing: true });
+  await w.settle();
+  assert.equal(w.browser.mutations().length, before);
+});

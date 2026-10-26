@@ -107,6 +107,10 @@ export function createScheduler(
       slotOf(windowId).dirty.add(tabId);
       schedule(windowId);
     },
+    /** Something changed in the window that may need tidying up, e.g. a tab was closed. */
+    markChanged(windowId: number) {
+      schedule(windowId);
+    },
     /** The whole window should be re-evaluated. */
     requestFull(windowId: number, kind: "startup" | "manual") {
       const slot = slotOf(windowId);
