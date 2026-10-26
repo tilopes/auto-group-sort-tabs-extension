@@ -1,0 +1,6 @@
+dist
+artifacts
+node_modules
+package-lock.json
+src/core/suffixes.generated.ts
+PLAN.md

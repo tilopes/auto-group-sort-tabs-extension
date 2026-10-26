@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Sort Tabs",
+  "version": "0.1.0",
+  "description": "Automatically groups tabs into native tab groups and keeps them sorted.",
+  "minimum_chrome_version": "121",
+  "permissions": ["tabs", "tabGroups", "storage"],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "auto-sort-tabs@tilopes.github.io",
+      "strict_min_version": "139.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  }
+}
