@@ -42,6 +42,8 @@ npm run lint           # build + web-ext lint
 
 - `npm run test:e2e` runs the real-Chromium scenarios (`e2e/`, Playwright's bundled Chromium).
   On demand only, not in CI. One-off: `npx playwright install chromium`; needs system `openssl`.
+- `npm run bench` runs the NF-3 planning benchmark (`test/*.bench.ts`). On demand only, not
+  in CI: timing budgets are unreliable on shared runners.
 - Run one file with `node --test test/grouping.test.ts`, or filter by name with
   `node --test --test-name-pattern "<name>" "test/**/*.test.ts"`.
 - Tests describe **functional behaviour at a public boundary**: either the whole extension

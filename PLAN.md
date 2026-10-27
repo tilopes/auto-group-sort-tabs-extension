@@ -524,6 +524,9 @@ moved at most once), tests observe the number of browser API calls the fake reco
   - every group's tabs are contiguous; no tab is lost or duplicated;
   - no owned group has fewer tabs than allowed by the hysteresis rule.
   These catch combinations example tests miss.
+- **Benchmark (NF-3):** `npm run bench` times planning for a 1,000-tab window. It runs on
+  demand on a developer machine, not in `npm test` or CI: shared CI runners are several times
+  slower and noisy, so a fixed time budget there fails intermittently.
 - **Fake-browser contract suite:** the fake is only useful if it behaves like the real
   browsers, and Chrome and Firefox differ on edge cases (e.g. where `tabs.move` places a
   tab next to a group). A small set of scenarios (~10–15) runs against both the fake and
