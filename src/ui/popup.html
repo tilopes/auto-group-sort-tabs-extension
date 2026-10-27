@@ -6,11 +6,26 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="popup">
+    <h1>Auto Sort Tabs</h1>
     <button id="organize" type="button" class="primary">Organize now</button>
-    <label><input id="autoGroup" type="checkbox" /> Group tabs automatically</label>
-    <label><input id="autoSort" type="checkbox" /> Sort tabs automatically</label>
-    <p id="status" role="status"></p>
-    <button id="options" type="button" class="link">Settings…</button>
+    <div class="card">
+      <label class="row">
+        <span class="text">
+          Group automatically
+          <span class="help">Put new tabs of a site into a group.</span>
+        </span>
+        <input id="autoGroup" type="checkbox" role="switch" />
+      </label>
+      <label class="row">
+        <span class="text">
+          Sort automatically
+          <span class="help">Keep groups and tabs in order.</span>
+        </span>
+        <input id="autoSort" type="checkbox" role="switch" />
+      </label>
+    </div>
+    <p id="status" class="error" role="status"></p>
+    <button id="options" type="button">Settings</button>
     <script type="module" src="popup.js"></script>
   </body>
 </html>

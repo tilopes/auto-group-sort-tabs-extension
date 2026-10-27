@@ -21,10 +21,13 @@ for (const key of ["autoGroup", "autoSort"] as const) {
   });
 }
 
-byId("organize").addEventListener("click", async () => {
+const organize = byId<HTMLButtonElement>("organize");
+organize.addEventListener("click", async () => {
+  organize.disabled = true;
   const { id } = await pageApi.windows.getCurrent();
   if (id !== undefined) await pageApi.runtime.sendMessage({ type: "organize-now", windowId: id });
-  window.close();
+  organize.textContent = "Organizing…";
+  setTimeout(() => window.close(), 600);
 });
 
 byId("options").addEventListener("click", async () => {
