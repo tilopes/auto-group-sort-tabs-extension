@@ -42,6 +42,16 @@ export function scenario(specs: readonly TabSpec[], overrides: Partial<Settings>
       shell.organizeNow(WINDOW_ID);
       await drain();
     },
+    /** The toolbar button is clicked. */
+    async clickToolbarButton() {
+      browser.clickToolbarButton();
+      await drain();
+    },
+    /** The keyboard shortcut is pressed. */
+    async pressShortcut(command = "organize-now") {
+      browser.pressShortcut(command);
+      await drain();
+    },
     /** Time passes: events that were reported are handled. */
     settle: drain,
     /** The browser starts and restores its session. */

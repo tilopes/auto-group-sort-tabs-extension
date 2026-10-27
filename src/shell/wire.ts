@@ -12,6 +12,8 @@ import { createStateStore } from "./state.ts";
 const MAX_PASSES = 6;
 /** Windows opened this soon after the browser starts are session-restore windows. */
 const STARTUP_WINDOW_MS = 10_000;
+/** Name of the keyboard command in manifest.json. */
+const ORGANIZE_NOW_COMMAND = "organize-now";
 
 export function wire(api: BrowserApi) {
   const settingsStore = createSettingsStore(api);
@@ -140,10 +142,16 @@ export function wire(api: BrowserApi) {
     if (reason === "install") return startupPass();
   });
 
+  const organizeNow = (windowId: number) => scheduler.requestFull(windowId, "manual");
+
+  // The M4 popup replaces the toolbar click; the shortcut stays.
+  api.action.onClicked.addListener((tab) => organizeNow(tab.windowId));
+  api.commands.onCommand.addListener((command, tab) => {
+    if (command === ORGANIZE_NOW_COMMAND && tab) organizeNow(tab.windowId);
+  });
+
   return {
-    organizeNow(windowId: number) {
-      scheduler.requestFull(windowId, "manual");
-    },
+    organizeNow,
     idle: scheduler.idle,
     hasPending: scheduler.hasPending,
   };

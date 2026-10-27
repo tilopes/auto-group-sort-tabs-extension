@@ -155,3 +155,46 @@ test("'Organize now' moves the active tab too", async () => {
   await w.organizeNow();
   assert.deepEqual(w.layout(), ["a.com", "b.com"]);
 });
+
+const unorganised = [
+  "z.org",
+  "b.com/1",
+  { url: "a.net", active: true },
+  "b.com/2",
+  "b.com/3",
+] as const;
+const organised = [{ group: "b.com", tabs: ["b.com/1", "b.com/2", "b.com/3"] }, "a.net", "z.org"];
+
+test("clicking the toolbar button groups and sorts the window, and a second click changes nothing", async () => {
+  const w = scenario(unorganised);
+  await w.clickToolbarButton();
+  assert.deepEqual(w.layout(), organised);
+  w.browser.calls = [];
+  await w.clickToolbarButton();
+  assert.equal(w.browser.mutations().length, 0);
+});
+
+test("the keyboard shortcut does the same as the toolbar button", async () => {
+  const w = scenario(unorganised);
+  await w.pressShortcut();
+  assert.deepEqual(w.layout(), organised);
+});
+
+test("other keyboard commands do nothing", async () => {
+  const w = scenario(unorganised);
+  await w.pressShortcut("something-else");
+  assert.deepEqual(
+    w.layout(),
+    [...unorganised].map((tab) => (typeof tab === "string" ? tab : tab.url)),
+  );
+});
+
+test("in a window that is not focused, automatic sorting may move the active tab", async () => {
+  const w = scenario(["b.com", "d.com", { url: "z.org", active: true }], { autoSort: true });
+  await w.organizeNow();
+  w.browser.focused = false;
+  w.browser.openTab("c.com");
+  w.browser.activate("c.com");
+  await w.settle();
+  assert.deepEqual(w.layout(), ["b.com", "c.com", "d.com", "z.org"]);
+});

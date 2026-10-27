@@ -53,6 +53,8 @@ export type BrowserApi = {
     sync: StorageArea;
     onChanged: BrowserEvent<[Record<string, unknown>, string]>;
   };
+  action: { onClicked: BrowserEvent<[{ windowId: number }]> };
+  commands: { onCommand: BrowserEvent<[string, { windowId: number } | undefined]> };
   runtime: {
     onStartup: BrowserEvent<[]>;
     onInstalled: BrowserEvent<[{ reason: string }]>;

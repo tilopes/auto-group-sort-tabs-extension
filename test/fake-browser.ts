@@ -103,6 +103,8 @@ export class FakeBrowser {
   readonly onWindowCreated = new FakeEvent<[{ id: number }]>();
   readonly onStartup = new FakeEvent<[]>();
   readonly onInstalled = new FakeEvent<[{ reason: string }]>();
+  readonly onActionClicked = new FakeEvent<[{ windowId: number }]>();
+  readonly onCommand = new FakeEvent<[string, { windowId: number } | undefined]>();
   readonly onStorageChanged = new FakeEvent<[Record<string, unknown>, string]>();
   readonly storage = {
     session: new FakeStorageArea("session", this.onStorageChanged),
@@ -254,9 +256,21 @@ export class FakeBrowser {
       this.onWindowCreated,
       this.onStartup,
       this.onInstalled,
+      this.onActionClicked,
+      this.onCommand,
       this.onStorageChanged,
     ])
       event.clear();
+  }
+
+  /** The user clicks the extension's toolbar button. */
+  clickToolbarButton() {
+    this.onActionClicked.fire({ windowId: WINDOW_ID });
+  }
+
+  /** The user presses a keyboard shortcut of the extension. */
+  pressShortcut(command: string) {
+    this.onCommand.fire(command, { windowId: WINDOW_ID });
   }
 
   idOf(tab: number | string): number {
@@ -321,6 +335,8 @@ export class FakeBrowser {
       onCreated: this.onWindowCreated,
     },
     runtime: { onStartup: this.onStartup, onInstalled: this.onInstalled },
+    action: { onClicked: this.onActionClicked },
+    commands: { onCommand: this.onCommand },
     storage: {
       session: this.storage.session,
       sync: this.storage.sync,
