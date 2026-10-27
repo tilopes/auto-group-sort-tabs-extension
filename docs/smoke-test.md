@@ -164,20 +164,24 @@ new group_)
 
 **AC-10 Settings and UI** (25–30 automated in Chromium as extension pages; 31–32 manual)
 
-Open the options page from the popup's _Settings…_ button, or from `chrome://extensions` →
+Open the options page from the popup's _Settings_ button, or from `chrome://extensions` →
 Details → Extension options (Firefox: _about:addons_ → the extension → Preferences; it opens in
 a tab).
 
-25. Popup: the two toggles show the stored state (auto-group on, auto-sort off by default).
+25. Popup: the two switches show the stored state (auto-group on, auto-sort off by default).
+    Both pages follow the system light/dark setting and look consistent (same font, controls).
     Switching auto-sort on and opening three out-of-order `github.com` tabs sorts them; turning
     auto-group off stops new groups. Turning auto-group on does nothing by itself: the next tab
     event or Organize now applies it.
-26. Options: add a rule _Docs_, host, `docs.github.com`; Save. Open `https://docs.github.com/a`,
+26. Options: _Add rule_ → _Docs_, host, `docs.github.com`. There is no Save button: after a
+    moment the header shows _Saved_ (switches and selects save at once). Open `https://docs.github.com/a`,
     `/b`, `/c` → one group "Docs". Changes need no restart.
 27. Options: set the strategy to hostname and `minTabs` to 2 → two tabs of `https://en.wikipedia.org/`
-    form a group named `en.wikipedia.org`; `minTabs` outside 2–20 is refused by the form.
+    form a group named `en.wikipedia.org`; `minTabs` outside 2–20 shows an error under the field
+    and is not saved.
 28. Options: add a regex rule `^https://(` → the error "Invalid regular expression…" shows next to
-    the rule and nothing is saved (reload: the rule is gone). Fix the pattern → it saves.
+    the rule once you leave the row and it is not saved (reload: the rule is gone). Fix the
+    pattern → it saves by itself.
 29. Rules: move a rule up/down (first match wins), disable it, remove it; each takes effect on the
     next run.
 30. Export → copy the JSON, remove all rules, Import the JSON → the rules are back. Importing

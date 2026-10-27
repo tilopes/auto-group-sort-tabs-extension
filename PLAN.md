@@ -395,10 +395,10 @@ any M1 spec.
   detection needs a dependency, and a heuristic would give false assurance. The classifier still
   skips a rule that fails to compile.
 - **Quota:** all settings stay in one `settings` item, capped by the browser at about 8 KB. §5's
-  "cap at ~200 rules" is dropped; the options page shows the refusal on Save and on Import
+  "cap at ~200 rules" is dropped; the options page shows the refusal when it saves and on Import
   ("Not imported: …quota…" was checked in Chromium). No sharding.
 - **Popup:** Organize now for the window it belongs to, auto-group and auto-sort toggles, and a
-  _Settings…_ button. A popup cannot call the worker, so it sends an `organize-now` message
+  _Settings_ button. A popup cannot call the worker, so it sends an `organize-now` message
   (`shell/messages.ts`, handled by `runtime.onMessage` in `wire.ts`). `action.onClicked` is
   removed; the `Alt+Shift+O` command stays. Toggling auto-group on does nothing immediately: the
   next tab event or Organize now applies it (a surprise reorganisation on a switch seemed worse).
@@ -406,11 +406,19 @@ any M1 spec.
   every change applies on the next run with no restart.
 - **Options page** (`options_ui` with `open_in_tab`): strategy, `minTabs`, tab and group sort,
   and a rules editor (name, colour, enabled, host/prefix/regex, reorder because the first match
-  wins). Save is explicit and all-or-nothing: an invalid rule shows its error inline and nothing
-  is written. It writes over the freshly read stored settings, so toggles changed in the popup
-  meanwhile are kept. Import/export is a text area (no file picker, no extra permission):
+  wins). The page saves automatically, like the popup, with no Save button (UI redesign): selects,
+  switches, reorder and remove save at once, text fields after a 600 ms pause or on blur
+  (`storage.sync` allows about 120 writes a minute), and a _Saved_ indicator confirms it. Only
+  valid input is stored: an invalid rule keeps the stored rules and an out-of-range `minTabs`
+  keeps the stored value, each with its error inline once the user leaves the row, while the
+  other fields still save. Saves are serialised and write over the freshly read stored settings,
+  so toggles changed in the popup meanwhile are kept. Import/export is a text area (no file picker, no extra permission):
   Import replaces all settings, refuses text that is not JSON, not an object or of an unknown
   `version`, and reports how many invalid rules it skipped.
+- **Look:** both pages share `ui/style.css`: system font, a few custom properties (one accent),
+  automatic light/dark from `prefers-color-scheme`, card sections of label-and-control rows,
+  and `<input type="checkbox" role="switch">` toggles. No framework, web font or image. The font
+  is set on `body` because Chromium's default style for extension pages shrinks it to 75%.
 - **AC-10:** persistence is `storage.sync`; the e2e relaunches Chromium on the same profile and
   checks the stored settings, the form and that the restarted extension applies them. Syncing
   between devices is the browser's job and is manual (smoke-test 31).
