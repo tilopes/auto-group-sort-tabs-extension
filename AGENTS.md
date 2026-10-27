@@ -26,6 +26,7 @@ npm run run:chrome     # build and launch Chromium with the extension
 npm run run:firefox    # build and launch Firefox with the extension
 npm run pack           # zip for distribution into artifacts/
 npm run gen:suffixes   # refresh src/core/suffixes.generated.ts from the PSL (before releases)
+npm run gen:icons      # render assets/icon.svg to src/icons/*.png after editing it
 ```
 
 There is no bundler: `tsc` emits ES modules that the browsers load directly. Don't add

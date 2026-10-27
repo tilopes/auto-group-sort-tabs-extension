@@ -20,6 +20,7 @@
     "run:firefox": "npm run build && web-ext run --source-dir dist",
     "pack": "npm run build && web-ext build --source-dir dist --artifacts-dir artifacts --overwrite-dest",
     "gen:suffixes": "node scripts/gen-suffixes.ts",
+    "gen:icons": "node scripts/gen-icons.ts",
     "bench": "node --test \"test/**/*.bench.ts\""
   },
   "devDependencies": {

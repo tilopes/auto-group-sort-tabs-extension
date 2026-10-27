@@ -4,8 +4,18 @@
   "version": "0.1.0",
   "description": "Automatically groups tabs into native tab groups and keeps them sorted.",
   "minimum_chrome_version": "121",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": ["tabs", "tabGroups", "storage"],
-  "action": { "default_title": "Auto Sort Tabs", "default_popup": "ui/popup.html" },
+  "action": {
+    "default_title": "Auto Sort Tabs",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" },
+    "default_popup": "ui/popup.html"
+  },
   "options_ui": { "page": "ui/options.html", "open_in_tab": true },
   "commands": {
     "organize-now": {
