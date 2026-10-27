@@ -53,9 +53,11 @@ export async function launchBrowser() {
     const { value } = await poll(
       async () => {
         for (const worker of context.serviceWorkers()) {
-          const manifest = await worker
-            .evaluate(() => chrome.runtime.getManifest().name)
-            .catch(() => "");
+          // evaluate never settles on a worker that has been stopped
+          const manifest = await Promise.race([
+            worker.evaluate(() => chrome.runtime.getManifest().name).catch(() => ""),
+            new Promise<string>((resolve) => setTimeout(resolve, 1_000, "")),
+          ]);
           if (manifest === name) return worker;
         }
         return undefined;
@@ -219,6 +221,29 @@ export async function launchBrowser() {
     async setSettings(settings: Record<string, unknown>) {
       const worker = await ours();
       await worker.evaluate((settings) => chrome.storage.sync.set({ settings }), settings);
+    },
+    /** Stops our background worker the way the browser does when it has been idle. */
+    async stopExtensionWorker() {
+      const worker = await ours();
+      const extensionId = new URL(worker.url()).host;
+      const page = context.pages()[0] ?? (await context.newPage());
+      const cdp = await context.newCDPSession(page);
+      const status = new Map<string, string>();
+      cdp.on("ServiceWorker.workerVersionUpdated", ({ versions }) => {
+        for (const { versionId, scriptURL, runningStatus } of versions) {
+          if (scriptURL.includes(extensionId)) status.set(versionId, runningStatus);
+        }
+      });
+      await cdp.send("ServiceWorker.enable");
+      const running = async () => [...status].filter(([, state]) => state === "running");
+      const seen = await poll(running, (versions) => versions.length > 0, 5_000);
+      if (!seen.ok) throw new Error("The extension's service worker is not running");
+      for (const [versionId] of seen.value)
+        await cdp.send("ServiceWorker.stopWorker", { versionId });
+      // Playwright's Worker handles go stale (evaluate hangs), so watch the CDP status instead.
+      const stopped = await poll(running, (versions) => versions.length === 0, 5_000);
+      await cdp.detach();
+      if (!stopped.ok) throw new Error("The extension's service worker did not stop");
     },
     async sessionState() {
       const worker = await ours();
