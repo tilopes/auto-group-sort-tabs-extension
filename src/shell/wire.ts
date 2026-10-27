@@ -80,10 +80,13 @@ export function wire(api: BrowserApi) {
 
   api.tabs.onCreated.addListener(async (tab) => {
     if (tab.id === undefined) return;
-    const settings = await settingsStore.get();
-    const key = classify({ url: tab.url || tab.pendingUrl || "" }, settings)?.title ?? null;
-    const id = tab.id;
-    await stateStore.update((state) => ({ ...state, keys: { ...state.keys, [id]: key } }));
+    // A tab that only has a pending URL may be queried without any URL before it commits, so a
+    // run can see it as ungroupable. Leaving its key unset makes the commit mark it dirty again.
+    if (tab.url) {
+      const key = classify({ url: tab.url }, await settingsStore.get())?.title ?? null;
+      const id = tab.id;
+      await stateStore.update((state) => ({ ...state, keys: { ...state.keys, [id]: key } }));
+    }
     scheduler.markDirty(tab.windowId, tab.id);
   });
 

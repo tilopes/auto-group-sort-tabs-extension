@@ -33,6 +33,18 @@ test("a continuous stream of tabs is still handled within two seconds", async ()
   );
 });
 
+test("a tab that is still loading when the extension runs is grouped once it has a URL", async () => {
+  const w = scenario([{ url: "x.org", active: true }]);
+  w.browser.openTab("github.com/a");
+  w.browser.openTab("github.com/b");
+  await w.settle();
+  const c = w.browser.openTab("github.com/c", { loading: true });
+  await w.settle();
+  w.browser.finishLoading(c);
+  await w.settle();
+  assert.deepEqual(w.layout(), ["x.org", githubGroup("a", "b", "c")]);
+});
+
 test("a tab closed before the extension reacts is left alone", async () => {
   const w = scenario([{ url: "x.org", active: true }]);
   w.browser.openTab("github.com/a");

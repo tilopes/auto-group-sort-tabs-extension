@@ -89,12 +89,13 @@ export class FakeBrowser {
 
   #faults = new Map<string, number>();
   #refusedMoves = 0;
+  #loading = new Map<number, string>();
   #tabs: FakeTab[] = [];
   #groups = new Map<number, FakeGroup>();
   #nextTabId = 1;
   #nextGroupId = 1000;
 
-  readonly onCreated = new FakeEvent<[FakeTab]>();
+  readonly onCreated = new FakeEvent<[FakeTab & { pendingUrl?: string }]>();
   readonly onUpdated = new FakeEvent<[number, { url?: string; groupId?: number }, FakeTab]>();
   readonly onRemoved = new FakeEvent<[number, { windowId: number; isWindowClosing: boolean }]>();
   readonly onActivated = new FakeEvent<[{ tabId: number; windowId: number }]>();
@@ -148,16 +149,19 @@ export class FakeBrowser {
 
   // ----- test-side helpers (not part of the browser API) -----
 
-  /** User opens a tab at the end of the strip. */
-  openTab(spec: TabSpec, { activate = false } = {}): number {
+  /**
+   * User opens a tab at the end of the strip. A `loading` tab reports `pendingUrl` in `onCreated`
+   * but has no URL in queries until `finishLoading`, as observed in Chromium.
+   */
+  openTab(spec: TabSpec, { activate = false, loading = false } = {}): number {
     const options = typeof spec === "string" ? { url: spec } : spec;
     const url = fullUrl(options.url);
     const tab: FakeTab = {
       id: this.#nextTabId++,
       windowId: WINDOW_ID,
       index: this.#tabs.length,
-      url,
-      title: options.title ?? displayUrl(url),
+      url: loading ? "" : url,
+      title: loading ? "" : (options.title ?? displayUrl(url)),
       pinned: false,
       active: false,
       groupId: NO_GROUP,
@@ -165,9 +169,20 @@ export class FakeBrowser {
     };
     this.#tabs.push(tab);
     this.#reindex();
-    this.onCreated.fire({ ...tab });
+    if (loading) this.#loading.set(tab.id, url);
+    this.onCreated.fire(loading ? { ...tab, pendingUrl: url } : { ...tab });
     if (activate) this.activate(tab.id);
     return tab.id;
+  }
+
+  /** The navigation of a `loading` tab commits. */
+  finishLoading(tabId: number) {
+    const tab = this.#tab(tabId);
+    const url = this.#loading.get(tabId)!;
+    this.#loading.delete(tabId);
+    tab.url = url;
+    tab.title = displayUrl(url);
+    this.onUpdated.fire(tab.id, { url }, { ...tab });
   }
 
   /** User navigates a tab to another URL. */
