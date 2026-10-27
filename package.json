@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.build.json && node scripts/copy-static.ts",
     "typecheck": "tsc && tsc -p tsconfig.core.json",
     "test": "node --test \"test/**/*.test.ts\"",
+    "test:e2e": "npm run build && node --test --test-concurrency=1 \"e2e/**/*.e2e.test.ts\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run build && web-ext lint --source-dir dist",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/chrome": "^0.3.6",
     "@types/node": "^26.6.5",
+    "playwright": "^1.64.1",
     "prettier": "^3.9.10",
     "typescript": "^7.0.2",
     "web-ext": "^10.8.0"

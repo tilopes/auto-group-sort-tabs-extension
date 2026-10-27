@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
-  "compilerOptions": { "noEmit": true, "types": ["chrome", "node"] },
-  "include": ["src", "test", "scripts"]
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["chrome", "node"]
+  },
+  "include": ["src", "test", "scripts", "e2e"]
 }
