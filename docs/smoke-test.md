@@ -5,12 +5,15 @@ browsers: what `npm run test:e2e` automates in Chromium, and what only a person 
 Anything marked **RECORD** that differs from the expectation invalidates an `ASSUMPTION` in
 `test/fake-browser.ts` (and the tests built on it), so report it.
 
-There is no UI yet (M4). Automatic grouping is on, auto-sort is off, `minTabs` is 3, and
-"Organize now" is not reachable.
+There is no UI yet (M4). Automatic grouping is on, auto-sort is off (turn it on with
+`await api.storage.sync.set({settings: {autoSort: true}})` in the console), `minTabs` is 3.
+"Organize now" is the toolbar button or the shortcut Alt+Shift+O (Option+Shift+O on macOS);
+rebind it at `chrome://extensions/shortcuts`, or in Firefox _Add-ons → ⚙ → Manage Extension
+Shortcuts_. In Firefox the button lives in the Extensions (puzzle) menu until pinned.
 
 ## Automated: `npm run test:e2e` (Chromium)
 
-Runs the AC-1…AC-9 scenarios below in Playwright's bundled Chromium with the built extension
+Runs the AC-1…AC-9 scenarios (except the real clicks and keys) below in Playwright's bundled Chromium with the built extension
 loaded. It is on demand, not part of `npm test` or per-commit CI (PLAN §8).
 
 - One-off setup: `npx playwright install chromium`; the system `openssl` is needed too (the
@@ -108,15 +111,43 @@ new group_)
 17. **Manual: do 13, 15 and 16 with the mouse** (drag out/in). **RECORD** if the result differs
     from the API-driven one (see the ASSUMPTIONs below).
 
-**AC-8 Active tab deferral** (automated)
+**AC-7 Organize now** (automated; Playwright cannot press browser chrome, so the tests dispatch
+`action.onClicked` / `commands.onCommand` to the extension. Pressing the real keys and button is manual)
 
-18. Two `github.com` tabs plus the first tab of the window. With the first tab active, navigate it
+18. Open, in this order, in a window whose first tab is `https://example.org/`:
+    `https://www.rust-lang.org/`, `https://en.wikipedia.org/wiki/Tab_key`,
+    `https://github.com/nodejs/node`, `https://www.bbc.co.uk/news`,
+    `https://de.wikipedia.org/wiki/Tabulator`, `https://github.com/microsoft/TypeScript`,
+    `https://example.com/`, `https://www.bbc.co.uk/sport`,
+    `https://fr.wikipedia.org/wiki/Tabulation`, `https://github.com/prettier/prettier`,
+    `https://www.bbc.co.uk/weather`. Three groups form in arrival order; nothing is sorted. Click
+    the toolbar button → `bbc.co.uk` (news, sport, weather), `github.com` (TypeScript, node,
+    prettier), `wikipedia.org` (de, en, fr), then `example.com`, `example.org`, `rust-lang.org`.
+    The active tab is moved too. (The e2e fixture's page titles are the URLs. Real pages have
+    other titles, so the order inside a group follows those.)
+19. Click again → nothing moves. (e2e counts `tabs.move/group/ungroup` and `tabGroups.move/update`
+    calls: none.)
+20. Scramble the window and press the shortcut instead → same result as 18. **Manual:** do 18
+    with the real toolbar button and with the real shortcut, in Chrome and Firefox. **RECORD** if
+    the shortcut does nothing (taken by another extension or the OS, or not assigned: the e2e
+    only checks that Chromium registered it), and how the browser displays it.
+
+**AC-8 Active tab deferral** (automated; 22 and 23 need auto-sort on)
+
+21. Two `github.com` tabs plus the first tab of the window. With the first tab active, navigate it
     to `https://github.com/vercel/next.js` → it is not moved while active; it joins the group
     after you switch away.
+22. With auto-sort on, open `https://www.rust-lang.org/` then `https://example.com/` → each lands
+    in domain order: `example.com`, `example.org`, `rust-lang.org`.
+23. With auto-sort on, open `https://github.com/microsoft/TypeScript`,
+    `https://github.com/prettier/prettier`, `https://github.com/webpack/webpack` → a sorted
+    `github.com` group appears in front of the ungrouped tab. Open `https://github.com/nodejs/node`
+    as the active tab → it stays at the end while active; after switching to `example.org` it
+    joins the group between TypeScript and prettier.
 
 **AC-9 Non-groupable pages** (automated; opened through the API, they open fine)
 
-19. Three each of `about:blank`, `chrome://settings`, `chrome://newtab`, `file:///etc/hosts`
+24. Three each of `about:blank`, `chrome://settings`, `chrome://newtab`, `file:///etc/hosts`
     (Firefox: `about:blank`, `about:preferences`, `about:newtab`) → all ungrouped.
 
 ## Manual only
@@ -125,11 +156,11 @@ new group_)
 ES-module background starts in both browsers (Chrome uses `service_worker`, Firefox `scripts`).
 **RECORD** any error text.
 
-**M-2 Firefox.** Run scenarios 1–19 by hand. Also: `tabs.group` + `tabGroups.update(g, {title:
+**M-2 Firefox.** Run scenarios 1–24 by hand. Also: `tabs.group` + `tabGroups.update(g, {title:
 "T", color:"blue"})` succeed and show title and colour; `tabGroups.move(g, {index: 0})` with a
 pinned tab present is refused, `{index: -1}` moves it to the end. **RECORD** errors.
 
-**M-3 Edge and Brave.** Run scenarios 1–9 once each.
+**M-3 Edge and Brave.** Run scenarios 1–9 and 18–20 once each.
 
 **M-4 Startup pass.** Window with `github.com/{a,b,c}` ungrouped plus an unrelated active tab.
 Chrome: _On startup → Continue where you left off_, quit fully, reopen. Expected: within ~12 s
@@ -151,12 +182,12 @@ the nearer end of the group, ties after it).
 Still open; run in the background console in a fresh window of unrelated domains (`a1.test`,
 `a2.test`, …), `await dump()` after each, and **RECORD** the output:
 
-20. **Drop into a group (mouse).** Group of `[x, y]`; drag an ungrouped tab between them. Assumed:
+25. **Drop into a group (mouse).** Group of `[x, y]`; drag an ungrouped tab between them. Assumed:
     it joins (`groupId` equals theirs). **RECORD** the resulting `groupId` and whether it differs
     from `await api.tabs.move(z, {index: <index of y>})`.
-21. **Drop out of a group (mouse).** Drag a grouped tab to the end of the strip. Assumed: it
+26. **Drop out of a group (mouse).** Drag a grouped tab to the end of the strip. Assumed: it
     leaves the group (`groupId` -1). **RECORD** if it stays or the browser refuses.
-22. **Firefox array `tabs.move` at the pinned boundary.** Pin one tab, then
+27. **Firefox array `tabs.move` at the pinned boundary.** Pin one tab, then
     `await api.tabs.move([idOfUnpinned], {index: 0})`. Assumed: Chrome rejects or clamps, Firefox
     resolves `[]` (the executor treats that as failure). Also `await api.tabs.move([idA, idB],
 {index: 3})` for two unpinned tabs: both move, result has two tabs. **RECORD** the return value,

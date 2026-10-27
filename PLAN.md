@@ -377,10 +377,32 @@ flowchart LR
 
 ### 7.1 Status after M2 and deviations from the plan
 
-M0, M1 and M2 are done (`npm run typecheck`, `format:check`, `test` (100 tests) and `lint`
+M0, M1, M2 and M3 are done (`npm run typecheck`, `format:check`, `test` (108 tests) and `lint`
 pass; zip ≈ 28 KB). All behaviour specs run through the real shell (`src/shell/*`) against the
 fake browser with mocked timers (`test/harness.ts`); the shell was added without changing
 any M1 spec.
+
+**M3 (sorting): what it added**
+- Most of the work was already in the core (`manual` mode, `planOrder`, active-tab rule). M3 adds
+  the triggers and the real-browser checks.
+- **Triggers:** `manifest.json` gains `action` (title only, no popup, so clicks reach
+  `action.onClicked`) and a `commands.organize-now` entry with suggested key `Alt+Shift+O`
+  (not Cmd+Shift+O: the bookmark manager on macOS). Both run the manual full-window pass on the
+  window of the tab they came from. No new permissions (NF-2). The M4 popup replaces the
+  toolbar click; the shortcut stays.
+- **Auto-sort toggle:** still `settings.autoSort` in `storage.sync` (default off), no UI before M4.
+  With it on, a group formed or joined by an automatic run is also sorted into place; groups sort
+  ahead of ungrouped tabs, so a new group can land in front of an untouched ungrouped tab. That
+  moves the group, not the tab, and is what the layout rule says.
+- **e2e:** Playwright cannot press browser chrome, so the tests call `dispatch` on Chromium's
+  `action.onClicked` / `commands.onCommand` event objects (undeclared in the typings); the
+  listener runs as for a real click. The second-run check counts `tabs.move/group/ungroup` and
+  `tabGroups.move/update` by wrapping them in the extension's worker (AC-7: none).
+- **NF-4** is still M5.
+- **Verified in real Chromium:** AC-7 (toolbar and shortcut events; Chromium registers the
+  shortcut), AC-8 with auto-sort on. **Still manual:** the real shortcut and toolbar button in
+  Chrome and Firefox, and that Firefox accepts the `commands`/`action` keys at load
+  (`web-ext lint` passes).
 
 **M2 shell: what it does and where it differs from §3.3 / §4.4**
 - **`wire.ts`** holds the glue (listeners, the run loop) instead of `background.ts`, so the
