@@ -1,20 +1,28 @@
-import { defaultSettings, type Settings } from "../core/types.ts";
+import { parseSettings } from "../core/settings.ts";
+import type { Settings } from "../core/types.ts";
 import type { BrowserApi } from "./api.ts";
 
 const KEY = "settings";
 
-/** User settings from `storage.sync`, over the defaults; reloaded when they change. */
+type SyncStorage = Pick<BrowserApi["storage"], "sync">;
+
+/** The effective settings: whatever `storage.sync` holds, validated over the defaults. */
+export async function loadSettings({ sync }: SyncStorage): Promise<Settings> {
+  return parseSettings((await sync.get(KEY))[KEY]);
+}
+
+/** Rejects when the browser refuses the write, e.g. over the `storage.sync` quota. */
+export function saveSettings({ sync }: SyncStorage, settings: Settings): Promise<void> {
+  return sync.set({ [KEY]: settings });
+}
+
+/** The settings for the background worker; reloaded when they change. */
 export function createSettingsStore(api: BrowserApi) {
   let current: Promise<Settings> | undefined;
-
-  const load = () =>
-    api.storage.sync
-      .get(KEY)
-      .then((items): Settings => ({ ...defaultSettings, ...(items[KEY] as Partial<Settings>) }));
 
   api.storage.onChanged.addListener((changes, area) => {
     if (area === "sync" && KEY in changes) current = undefined;
   });
 
-  return { get: () => (current ??= load()) };
+  return { get: () => (current ??= loadSettings(api.storage)) };
 }

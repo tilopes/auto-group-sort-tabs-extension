@@ -1,5 +1,15 @@
-export type GroupColor =
-  "grey" | "blue" | "red" | "yellow" | "green" | "pink" | "purple" | "cyan" | "orange";
+export const groupColors = [
+  "grey",
+  "blue",
+  "red",
+  "yellow",
+  "green",
+  "pink",
+  "purple",
+  "cyan",
+  "orange",
+] as const;
+export type GroupColor = (typeof groupColors)[number];
 
 export type TabInfo = {
   id: number;
@@ -44,6 +54,8 @@ export type TabSort = "title" | "url" | "lastAccessed";
 export type GroupSort = "title" | "size" | "firstSeen";
 
 export type Settings = {
+  /** Schema version of the stored settings; see `parseSettings`. */
+  version: 1;
   autoGroup: boolean;
   autoSort: boolean;
   strategy: KeyStrategy;
@@ -107,6 +119,7 @@ export type OrganizeResult = {
 };
 
 export const defaultSettings: Settings = {
+  version: 1,
   autoGroup: true,
   autoSort: false,
   strategy: "domain",

@@ -1,19 +1,13 @@
 import { registrableDomain } from "./domain.ts";
-import type { GroupColor, KeyStrategy, Rule, Settings } from "./types.ts";
+import {
+  groupColors,
+  type GroupColor,
+  type KeyStrategy,
+  type Rule,
+  type Settings,
+} from "./types.ts";
 
 export type Classification = { title: string; color: GroupColor };
-
-const colors: readonly GroupColor[] = [
-  "grey",
-  "blue",
-  "red",
-  "yellow",
-  "green",
-  "pink",
-  "purple",
-  "cyan",
-  "orange",
-];
 
 /** Deterministic colour (FNV-1a) so a key keeps its colour across sessions. */
 function colorFor(title: string): GroupColor {
@@ -21,7 +15,7 @@ function colorFor(title: string): GroupColor {
   for (let i = 0; i < title.length; i++) {
     hash = Math.imul(hash ^ title.charCodeAt(i), 0x01000193);
   }
-  return colors[(hash >>> 0) % colors.length] ?? "grey";
+  return groupColors[(hash >>> 0) % groupColors.length] ?? "grey";
 }
 
 function parseWebUrl(url: string): URL | null {
