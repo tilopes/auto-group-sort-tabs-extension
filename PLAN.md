@@ -451,7 +451,7 @@ any M1 spec.
   run failed; the scheduler retries it (events merged back) up to 3 times, then gives up until
   the next event.
 - **Scheduler:** trailing debounce 300 ms, max wait 2 s, one run at a time per window, events
-  arriving mid-run cause one re-run. Closing a tab (except with its window) also schedules a run, so groups reduced to one tab dissolve (AC-3). Dirty active tabs reported as `deferred` are retried on
+  arriving mid-run cause one re-run. Closing a tab (except with its window) and a tab's `groupId` change (drag out, Remove from group, move into another group) also schedule a run, so groups reduced to one tab dissolve (AC-3); neither marks a tab dirty, so a tab the user moved is never pulled back (AC-6). The slot records "changed", so such an event during a run causes one more run. Dirty active tabs reported as `deferred` are retried on
   `tabs.onActivated`.
 - **Executor:** passes `windowId` everywhere; an empty or falsy `tabs.move` result throws
   (Firefox refusal); a group that cannot be titled is ungrouped again before the error is raised.

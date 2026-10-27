@@ -78,7 +78,7 @@ Tests are named `AC-n: …` in `e2e/`.
    `https://github.com/a`, `/b`, `/c` → blue group `Docs` with the three doc tabs (docs.github.com
    included), group `github.com` with a, b, c.
 
-**AC-3 Membership follows the URL; groups dissolve at one tab** (automated)
+**AC-3 Membership follows the URL; groups dissolve at one tab** (automated; 9a and 9b need a real mouse)
 
 6. Groups `github.com` (TypeScript, node, prettier) and `bbc.co.uk` (three tabs). Navigate a
    github tab to `https://www.bbc.co.uk/food` → it joins `bbc.co.uk`; `github.com` keeps two.
@@ -86,6 +86,14 @@ Tests are named `AC-n: …` in `e2e/`.
 8. Close two `bbc.co.uk` tabs while another tab is active → the group dissolves.
 9. Same, but the last remaining tab is active → the group stays until you switch away, then it
    dissolves.
+   9a. **Manual (real mouse):** a three-tab group; drag one tab out of it onto the strip, then a
+   second one → the group dissolves right after the second drag, without opening or closing
+   any tab, and the dragged tabs stay ungrouped. Also right-click → _Remove from group_ on the
+   tabs. (e2e does the same with `tabs.ungroup`.)
+   9b. **Manual:** drag a tab of one group into another group, until the first is left with one
+   tab → the first dissolves. Repeat with the last remaining tab being the active one: it stays
+   until you switch to another tab, then dissolves (switching tabs is enough, no new tab needed).
+   **RECORD** if a one-tab group survives past ~1 s.
 
 **AC-4 Pinned tabs** (automated)
 
