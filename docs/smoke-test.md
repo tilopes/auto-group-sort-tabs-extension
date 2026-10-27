@@ -1,31 +1,44 @@
-# Manual smoke test (M2)
+# Testing against real browsers
 
-What the automated tests cannot prove: the extension against real Chrome and Firefox. Run it
-before starting M3. Record results next to each step; anything marked **RECORD** that differs
-from the expectation invalidates an `ASSUMPTION` in `test/fake-browser.ts` (and the tests built
-on it), so report it.
+Behaviour is specified by the fake-browser specs (`npm test`). This file covers the real
+browsers: what `npm run test:e2e` automates in Chromium, and what only a person can check.
+Anything marked **RECORD** that differs from the expectation invalidates an `ASSUMPTION` in
+`test/fake-browser.ts` (and the tests built on it), so report it.
 
 There is no UI yet (M4). Automatic grouping is on, auto-sort is off, `minTabs` is 3, and
-"Organize now" is not reachable. Use the steps below, and the service worker console for raw API
-calls.
+"Organize now" is not reachable.
 
-## 1. Build and load
+## Automated: `npm run test:e2e` (Chromium)
+
+Runs the AC-1…AC-9 scenarios below in Playwright's bundled Chromium with the built extension
+loaded. It is on demand, not part of `npm test` or per-commit CI (PLAN §8).
+
+- One-off setup: `npx playwright install chromium`; the system `openssl` is needed too (the
+  fixture proxy makes a throwaway certificate). `E2E_HEADED=1` shows the browser.
+- Branded Chrome 137+ ignores `--load-extension`, hence the bundled Chromium.
+- No network: a local proxy answers every request (title = the URL), so the real URLs below
+  work offline. Playwright's `context.route` does not see main-frame loads of tabs created
+  through the API, hence the proxy.
+- A test-only driver extension (`e2e/driver-extension/`, not shipped) performs user actions
+  through `tabs`/`tabGroups`; the extension under test only sees events. Assertions read the
+  real tab strip.
+- Not covered (manual, below): real mouse drags, restart/session restore, Firefox, Edge/Brave.
+
+## Build and load (manual runs)
 
 ```sh
 npm ci
 npm run build        # emits dist/
 ```
 
-**Chrome / Edge / Brave (121+):** open `chrome://extensions`, enable _Developer mode_,
-_Load unpacked_, choose `dist/`. Open the console with the _service worker_ link on the
-extension card.
+**Chrome / Edge / Brave (121+):** `chrome://extensions` → _Developer mode_ → _Load unpacked_ →
+`dist/`. Open the console with the _service worker_ link on the extension card.
 
-**Firefox 139+:** open `about:debugging#/runtime/this-firefox`, _Load Temporary Add-on…_, choose
-`dist/manifest.json`. Open the console with _Inspect_. (Temporary add-ons are removed when
-Firefox closes; step 14 needs a profile that keeps it, see there.)
+**Firefox 139+:** `about:debugging#/runtime/this-firefox` → _Load Temporary Add-on…_ →
+`dist/manifest.json`. Open the console with _Inspect_. (Temporary add-ons vanish when Firefox
+closes; for M-6 use `npx web-ext run --source-dir dist --keep-profile-changes`.)
 
-Console helper used below (paste into the background console; use `browser` instead of `chrome`
-in Firefox, or `const api = globalThis.browser ?? globalThis.chrome`):
+Console helper (background console; Firefox also has `browser`):
 
 ```js
 const api = globalThis.browser ?? globalThis.chrome;
@@ -35,97 +48,116 @@ const dump = async () =>
   );
 ```
 
-## 2. Loads and runs
+## Scenarios by acceptance criterion
 
-1. After loading, the console shows no errors and the extension card shows no errors.
-   Expected: ES-module background starts in both browsers (Chrome uses `service_worker`,
-   Firefox uses `scripts`). **RECORD** any error text.
+Start each in a fresh window. "Group X" means a group titled X. Wait ~2 s between steps.
+Tests are named `AC-n: …` in `e2e/`.
 
-## 3. Auto-group at the third tab (AC-1)
+**AC-1 Auto-group at three tabs** (automated)
 
-Use a window with a few unrelated tabs (e.g. `example.org`, `example.net`).
+1. Open `https://github.com/microsoft/TypeScript`, `https://gist.github.com/`,
+   `https://github.com/nodejs/node` → one group `github.com` within 1 s.
+2. `https://www.bbc.co.uk/news`, `/sport`, `/weather` → group `bbc.co.uk`.
+3. `http://localhost:3000/a`, `/b`, `/c` → group `localhost:3000`; two `http://localhost:4000/`
+   tabs stay ungrouped.
+4. `https://en.wikipedia.org/wiki/Tab_key` + `https://de.wikipedia.org/wiki/Tabulator` → no
+   group (only two).
 
-2. Open `https://github.com/a` then `https://github.com/b`. Expected: both stay ungrouped.
-3. Open `https://github.com/c`. Expected: within ~2 s a group titled `github.com` containing
-   the three tabs appears; the tab you are looking at (the active one) may stay out until you
-   switch away from it, then it joins.
-4. Open `https://github.com/d`. Expected: it joins the existing group.
+**AC-2 Rules beat the domain default** (automated)
 
-## 4. Dragged-out tab stays out (AC-6)
+5. Set the rule (service-worker console, or `storage.sync.set` in the driver):
+   `{settings:{rules:[{name:"Docs",color:"blue",enabled:true,match:{type:"regex",pattern:"^https://(developer\\.mozilla\\.org|developer\\.chrome\\.com|docs\\.github\\.com)/"}}]}}`.
+   Open `https://developer.mozilla.org/en-US/docs/Web/API`,
+   `https://developer.chrome.com/docs/extensions`, `https://docs.github.com/en`, then
+   `https://github.com/a`, `/b`, `/c` → blue group `Docs` with the three doc tabs (docs.github.com
+   included), group `github.com` with a, b, c.
 
-5. Drag `github.com/c` out of the group to the end of the strip. Expected: it stays out.
-6. Open `https://github.com/e`. Expected: it joins the group; `c` stays out.
-7. Navigate `c` to another `github.com` page (e.g. `github.com/c/issues`). Expected: stays out.
-8. **Idle case.** Close the service-worker/Inspect DevTools window (it keeps the worker alive).
-   Wait more than 30 s (Chrome: `chrome://serviceworker-internals` or the extensions page shows
-   the worker as inactive; Firefox: about:debugging shows the background script stopped, if it
-   offers it). Then navigate `c` to another `github.com` page. Expected: stays out.
-9. Navigate `c` to `https://gitlab.com`. Expected: not grouped (only one tab for that
-   domain), and it does not rejoin the `github.com` group.
+**AC-3 Membership follows the URL; groups dissolve at one tab** (automated)
 
-## 5. User's own things are left alone
+6. Groups `github.com` (TypeScript, node, prettier) and `bbc.co.uk` (three tabs). Navigate a
+   github tab to `https://www.bbc.co.uk/food` → it joins `bbc.co.uk`; `github.com` keeps two.
+7. Navigate another to `https://example.com/` → `github.com` dissolves.
+8. Close two `bbc.co.uk` tabs while another tab is active → the group dissolves.
+9. Same, but the last remaining tab is active → the group stays until you switch away, then it
+   dissolves.
 
-10. Pin a tab (`example.org`), then open three `github.com` tabs. Expected: the pinned tab
-    never moves or joins a group; the new group appears after it.
-11. Make your own group by hand (right-click a tab → _Add to new group_, name it `Mine`,
-    containing `example.net` tabs). Expected: it is never renamed, moved or merged, even after
-    more tabs open.
-12. Rename the `github.com` group to `Work`, then open another `github.com` tab. Expected: the
-    renamed group is left alone and the new tab is not added to it.
+**AC-4 Pinned tabs** (automated)
 
-## 6. Active tab deferral
+10. Pin `https://github.com/notifications`, then open three `github.com` tabs → pinned tab stays
+    first, then ungrouped tabs, then the new group; the pinned tab never joins a group.
 
-13. Open `github.com/x`, `github.com/y` and, as the active tab, `github.com/z` quickly (link
-    "open in new tab" with focus on the last). Expected: a group forms for the first two; the
-    active `z` is not moved or grouped while you are on it. Switch to another tab; `z` joins
-    the group within ~2 s.
+**AC-5 User groups are left alone** (automated; create `Mine` by hand: right-click → _Add to
+new group_)
 
-## 7. Startup pass
+11. `Mine` with two `github.com` tabs. Open three more `github.com` tabs; navigate a `Mine` tab
+    to `https://www.bbc.co.uk/news` → `Mine` keeps its title, order and position; the new tabs
+    form a separate `github.com` group.
+12. Rename an auto-created group to `Work`, open another `github.com` tab → the renamed group is
+    left alone and the tab is not added.
 
-Set up: a window with `github.com/{a,b,c}` ungrouped plus an unrelated active tab.
+**AC-6 Manual moves are respected**
 
-14. **Chrome:** set _On startup → Continue where you left off_, quit the browser completely and
-    reopen it. **Firefox:** use `npx web-ext run --source-dir dist` with `--keep-profile-changes`
-    (or a signed build) and a session-restore setting, restart. Expected: within ~12 s the
-    github tabs are grouped (the active tab joins after you switch away); no sorting happens
-    (auto-sort is off). Restored windows are handled too, not only the first.
-15. Open a new window long after startup (more than 10 s). Expected: its tabs are not
-    reorganised.
-16. Reload the extension from `chrome://extensions` (or `about:debugging`). Expected: no
-    reshuffling (a reload is not an install).
+13. (automated, API move) Drag a tab out of `github.com`, open `https://github.com/rust-lang/rust`,
+    navigate the moved-out tab to `https://github.com/golang/go` → it stays out.
+14. (automated, worker stopped over CDP) Repeat 13 after stopping the extension's service
+    worker. **Manual idle variant:** close the worker's DevTools, wait more than 30 s (the
+    extension card / `about:debugging` shows the worker inactive), then navigate within the
+    domain → stays out.
+15. (automated) Navigate it to `https://www.bbc.co.uk/news` → joins `bbc.co.uk`.
+16. (automated, API move) Move a `github.com` tab into `bbc.co.uk` → it stays there.
+17. **Manual: do 13, 15 and 16 with the mouse** (drag out/in). **RECORD** if the result differs
+    from the API-driven one (see the ASSUMPTIONs below).
 
-## 8. Fake-browser ASSUMPTIONs
+**AC-8 Active tab deferral** (automated)
 
-Run these in the background console, in a fresh window with the extension still loaded.
-Use unrelated domains (e.g. `a1.test`, `a2.test`, …, each opened once or twice) so the
-extension does not group them itself. Tabs below are by index in the window. After each step
-run `await dump()` and **RECORD** the output.
+18. Two `github.com` tabs plus the first tab of the window. With the first tab active, navigate it
+    to `https://github.com/vercel/next.js` → it is not moved while active; it joins the group
+    after you switch away.
 
-Setup: open 6 unrelated tabs `t0…t5`, then `const ids = (await api.tabs.query({currentWindow:true})).map(t=>t.id)`.
+**AC-9 Non-groupable pages** (automated; opened through the API, they open fine)
 
-17. **New-group placement.** `await api.tabs.group({tabIds:[ids[1], ids[3]]})`.
-    Assumed: the group appears at index 1 (where its leftmost tab was), members adjacent
-    (`ids[1]`, `ids[3]`), and the other tabs keep their relative order. **RECORD** the full
-    order if different (e.g. group created at the end, or at index 3).
-18. **Drop into a group.** With a group of `[x, y]`, move an ungrouped tab between them:
-    `await api.tabs.move(z, {index: <index of y>})`. Assumed: `z` joins the group
-    (`groupId` equals theirs). Repeat by _dragging_ with the mouse. **RECORD** whether
-    `tabs.move` and a manual drag differ, and the resulting `groupId`.
-19. **Drop out of a group.** Move a grouped tab to the end: `await api.tabs.move(x,
-{index: -1})`. Assumed: it leaves the group (`groupId` -1). **RECORD** if it stays in the
-    group (the strip is then inconsistent) or the browser refuses.
-20. **Ungroup from the middle.** With group `[a, b, c]`, `await api.tabs.ungroup(b)`.
-    Assumed: `b` lands right after the group (`a, c, b`), ungrouped. **RECORD** if it stays
-    in place (the group is split) or goes elsewhere.
-21. **Pinned boundary, array `tabs.move` (Firefox 139 especially).** Pin one tab. Then
-    `await api.tabs.move([idOfUnpinned], {index: 0})`. Assumed: Chrome rejects or clamps,
-    Firefox resolves `[]` (the executor treats that as failure and retries). Also
-    `await api.tabs.move([idA, idB], {index: 3})` for two unpinned tabs. Assumed: both
-    move, result is an array of 2 tabs. **RECORD** the return value and resulting order
-    for each, and whether the promise rejected.
-22. **Group move.** `await api.tabGroups.move(groupId, {index: 0})` with a pinned tab present.
-    Assumed: refused/throws before pinned tabs. `{index: -1}` moves it to the end.
-    **RECORD** results.
-23. **Group create + title in Firefox 139.** `const g = await api.tabs.group({tabIds:[a,b,c],
-createProperties:{windowId}})` then `await api.tabGroups.update(g, {title:"T", color:"blue"})`.
-    Expected: both succeed; the group shows title and colour. **RECORD** any error.
+19. Three each of `about:blank`, `chrome://settings`, `chrome://newtab`, `file:///etc/hosts`
+    (Firefox: `about:blank`, `about:preferences`, `about:newtab`) → all ungrouped.
+
+## Manual only
+
+**M-1 Loads and runs.** After loading, the console and the extension card show no errors; the
+ES-module background starts in both browsers (Chrome uses `service_worker`, Firefox `scripts`).
+**RECORD** any error text.
+
+**M-2 Firefox.** Run scenarios 1–19 by hand. Also: `tabs.group` + `tabGroups.update(g, {title:
+"T", color:"blue"})` succeed and show title and colour; `tabGroups.move(g, {index: 0})` with a
+pinned tab present is refused, `{index: -1}` moves it to the end. **RECORD** errors.
+
+**M-3 Edge and Brave.** Run scenarios 1–9 once each.
+
+**M-4 Startup pass.** Window with `github.com/{a,b,c}` ungrouped plus an unrelated active tab.
+Chrome: _On startup → Continue where you left off_, quit fully, reopen. Expected: within ~12 s
+the github tabs are grouped (the active one joins after you switch away); nothing is sorted;
+restored windows are handled too.
+
+**M-5 Not an install.** A new window opened more than 10 s after startup is not reorganised, and
+reloading the extension does not reshuffle.
+
+**M-6 Persistence.** In Firefox, repeat 14 (idle variant) with a kept profile.
+
+## Fake-browser ASSUMPTIONs still unverified
+
+Verified in real Chromium by the e2e suite (the fake was corrected where it differed):
+new-group placement (consistent with the group appearing at its leftmost member's position), where a tab added to a group lands (before the
+first member when it comes from the left, otherwise after the last), and ungroup placement (towards
+the nearer end of the group, ties after it).
+
+Still open; run in the background console in a fresh window of unrelated domains (`a1.test`,
+`a2.test`, …), `await dump()` after each, and **RECORD** the output:
+
+20. **Drop into a group (mouse).** Group of `[x, y]`; drag an ungrouped tab between them. Assumed:
+    it joins (`groupId` equals theirs). **RECORD** the resulting `groupId` and whether it differs
+    from `await api.tabs.move(z, {index: <index of y>})`.
+21. **Drop out of a group (mouse).** Drag a grouped tab to the end of the strip. Assumed: it
+    leaves the group (`groupId` -1). **RECORD** if it stays or the browser refuses.
+22. **Firefox array `tabs.move` at the pinned boundary.** Pin one tab, then
+    `await api.tabs.move([idOfUnpinned], {index: 0})`. Assumed: Chrome rejects or clamps, Firefox
+    resolves `[]` (the executor treats that as failure). Also `await api.tabs.move([idA, idB],
+{index: 3})` for two unpinned tabs: both move, result has two tabs. **RECORD** the return value,
+    order and whether it rejected.

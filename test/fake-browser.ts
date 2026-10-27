@@ -502,6 +502,7 @@ export class FakeBrowser {
     const id = this.#nextGroupId++;
     this.#groups.set(id, { id, windowId: WINDOW_ID, title: "", color: "grey", collapsed: false });
     // ASSUMPTION: the new group appears where its leftmost tab was, and never splits another group.
+    // (Consistent with the e2e layouts in real Chromium; not isolated by a dedicated scenario.)
     const sorted = [...moving].sort((a, b) => a.index - b.index);
     const rest = this.#tabs.filter((tab) => !moving.includes(tab));
     let at = sorted[0]!.index;
