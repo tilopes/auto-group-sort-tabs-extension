@@ -36,3 +36,11 @@ test("a group disappears when its last tab leaves", async () => {
   await b.api.tabs.ungroup(b.idOf("x"));
   assert.deepEqual(b.layout(), ["x", "a.com"]);
 });
+
+test("a tab added to a group lands on the side it came from", async () => {
+  const b = new FakeBrowser(["l.com", { url: "x", group: "G" }, { url: "y", group: "G" }, "r.com"]);
+  await b.api.tabs.group({ tabIds: [b.idOf("l.com")], groupId: b.group("G").id });
+  assert.deepEqual(b.layout(), [{ group: "G", tabs: ["l.com", "x", "y"] }, "r.com"]);
+  await b.api.tabs.group({ tabIds: [b.idOf("r.com")], groupId: b.group("G").id });
+  assert.deepEqual(b.layout(), [{ group: "G", tabs: ["l.com", "x", "y", "r.com"] }]);
+});

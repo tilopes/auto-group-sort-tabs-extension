@@ -480,10 +480,16 @@ export class FakeBrowser {
     const moving = ids.map((id) => this.#tab(id));
     if (moving.some((tab) => tab.pinned)) throw new Error("Cannot group pinned tabs");
     const members = this.#tabs.filter((tab) => tab.groupId === group.id && !moving.includes(tab));
-    // ASSUMPTION: tabs added to an existing group are placed after its last member.
-    const end = members.length ? this.#tabs.indexOf(members.at(-1)!) + 1 : this.#tabs.length;
-    const removedBefore = moving.filter((tab) => tab.index < end).length;
-    this.#place(moving, end - removedBefore);
+    // Verified in Chromium (e2e): a tab from the left of the group lands before its first member,
+    // any other tab after its last member.
+    const start = members.length ? this.#tabs.indexOf(members[0]!) : this.#tabs.length;
+    const fromLeft = moving.filter((tab) => tab.index < start);
+    if (fromLeft.length) this.#place(fromLeft, start - fromLeft.length);
+    const fromRight = moving.filter((tab) => !fromLeft.includes(tab));
+    if (fromRight.length) {
+      const end = members.length ? this.#tabs.indexOf(members.at(-1)!) + 1 : this.#tabs.length;
+      this.#place(fromRight, end - fromRight.filter((tab) => tab.index < end).length);
+    }
     for (const tab of moving) this.#setGroup(tab, groupId);
     this.#dropEmptyGroups();
     this.#assertValid();
