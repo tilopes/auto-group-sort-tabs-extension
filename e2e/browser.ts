@@ -185,6 +185,25 @@ export async function launchBrowser() {
           { tabIds, title, color, windowId },
         );
       },
+      /**
+       * The user clicks the toolbar button or presses the shortcut. Playwright cannot press
+       * browser chrome, so the same event is dispatched to the extension's own listener.
+       */
+      async organizeNow(how: "toolbar" | "shortcut" = "toolbar") {
+        const worker = await ours();
+        await worker.evaluate(
+          async ({ windowId, how }) => {
+            const [tab] = await chrome.tabs.query({ windowId, active: true });
+            // Chromium's event objects have `dispatch`; the typings do not declare it.
+            type Dispatching = { dispatch(...args: unknown[]): void };
+            if (how === "toolbar")
+              (chrome.action.onClicked as unknown as Dispatching).dispatch(tab);
+            else
+              (chrome.commands.onCommand as unknown as Dispatching).dispatch("organize-now", tab);
+          },
+          { windowId, how },
+        );
+      },
       async groupColor(title: string) {
         const { groups } = await read();
         return groups.find((group) => group.title === title)?.color;
@@ -244,6 +263,32 @@ export async function launchBrowser() {
       const stopped = await poll(running, (versions) => versions.length === 0, 5_000);
       await cdp.detach();
       if (!stopped.ok) throw new Error("The extension's service worker did not stop");
+    },
+    /** Starts counting the calls that change the tab strip, as made by the extension. */
+    async countMutations() {
+      const worker = await ours();
+      await worker.evaluate(() => {
+        const calls: string[] = [];
+        const tabs = chrome.tabs as Record<string, unknown>;
+        const groups = chrome.tabGroups as Record<string, unknown>;
+        for (const [api, name] of [
+          [tabs, "move"],
+          [tabs, "group"],
+          [tabs, "ungroup"],
+          [groups, "move"],
+          [groups, "update"],
+        ] as const) {
+          const original = api[name] as (...args: unknown[]) => unknown;
+          api[name] = (...args: unknown[]) => (calls.push(name), original.apply(api, args));
+        }
+        (globalThis as { calls?: string[] }).calls = calls;
+      });
+      return () => worker.evaluate(() => (globalThis as { calls?: string[] }).calls ?? []);
+    },
+    /** The extension's keyboard commands as the browser registered them. */
+    async commands() {
+      const worker = await ours();
+      return worker.evaluate(() => chrome.commands.getAll());
     },
     async sessionState() {
       const worker = await ours();
