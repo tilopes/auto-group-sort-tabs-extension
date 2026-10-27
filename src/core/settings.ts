@@ -9,6 +9,12 @@ import {
 
 export const minTabsLimits = { min: 2, max: 20 };
 
+export const isMinTabs = (value: unknown): value is number =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= minTabsLimits.min &&
+  value <= minTabsLimits.max;
+
 export type RuleResult = { rule: Rule } | { error: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -76,17 +82,12 @@ export function validateRule(raw: unknown): RuleResult {
 export function parseSettings(raw: unknown): Settings {
   if (!isRecord(raw)) return defaultSettings;
   if (raw.version !== undefined && raw.version !== defaultSettings.version) return defaultSettings;
-  const isMinTabs =
-    typeof raw.minTabs === "number" &&
-    Number.isInteger(raw.minTabs) &&
-    raw.minTabs >= minTabsLimits.min &&
-    raw.minTabs <= minTabsLimits.max;
   return {
     version: defaultSettings.version,
     autoGroup: typeof raw.autoGroup === "boolean" ? raw.autoGroup : defaultSettings.autoGroup,
     autoSort: typeof raw.autoSort === "boolean" ? raw.autoSort : defaultSettings.autoSort,
     strategy: oneOf(raw.strategy, ["domain", "hostname"], defaultSettings.strategy),
-    minTabs: isMinTabs ? (raw.minTabs as number) : defaultSettings.minTabs,
+    minTabs: isMinTabs(raw.minTabs) ? raw.minTabs : defaultSettings.minTabs,
     rules: Array.isArray(raw.rules)
       ? raw.rules.flatMap((candidate) => {
           const result = validateRule(candidate);

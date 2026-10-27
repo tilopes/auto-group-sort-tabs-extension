@@ -26,3 +26,8 @@ byId("organize").addEventListener("click", async () => {
   if (id !== undefined) await pageApi.runtime.sendMessage({ type: "organize-now", windowId: id });
   window.close();
 });
+
+byId("options").addEventListener("click", async () => {
+  await pageApi.runtime.openOptionsPage();
+  window.close();
+});

@@ -206,6 +206,7 @@ export async function launchBrowser() {
           { tabIds, title, color, windowId },
         );
       },
+      openOptions: () => openExtensionPage(windowId, "ui/options.html"),
       /** The popup, as a tab of this window (Playwright cannot open the real popup). */
       openPopup: () => openExtensionPage(windowId, "ui/popup.html"),
       /**

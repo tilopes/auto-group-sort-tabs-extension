@@ -48,3 +48,51 @@ button.link {
 [role="status"] {
   margin: 0;
 }
+
+body.options {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+#rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rule .name {
+  width: 10rem;
+}
+
+.rule .value {
+  flex: 1;
+  min-width: 14rem;
+}
+
+.rule .error {
+  flex-basis: 100%;
+  margin: 0;
+  color: crimson;
+}
+
+.rule .error:empty {
+  display: none;
+}

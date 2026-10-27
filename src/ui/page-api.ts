@@ -5,6 +5,7 @@ import type { OrganizeNowMessage } from "../shell/messages.ts";
 export type PageApi = Pick<BrowserApi, "storage"> & {
   runtime: {
     sendMessage(message: OrganizeNowMessage): Promise<unknown>;
+    openOptionsPage(): Promise<void>;
   };
   windows: { getCurrent(): Promise<{ id?: number }> };
 };
