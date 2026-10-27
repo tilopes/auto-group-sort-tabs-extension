@@ -42,7 +42,11 @@ export async function launchBrowser() {
     ...(process.env.E2E_HEADED ? {} : { channel: "chromium" }),
     ignoreHTTPSErrors: true,
     proxy: { server: proxy.url, bypass: "<-loopback>" },
-    args: [`--disable-extensions-except=${extensions}`, `--load-extension=${extensions}`],
+    args: [
+      "--ignore-certificate-errors",
+      `--disable-extensions-except=${extensions}`,
+      `--load-extension=${extensions}`,
+    ],
   });
 
   async function workerNamed(name: string): Promise<Worker> {
@@ -215,6 +219,10 @@ export async function launchBrowser() {
     async setSettings(settings: Record<string, unknown>) {
       const worker = await ours();
       await worker.evaluate((settings) => chrome.storage.sync.set({ settings }), settings);
+    },
+    async sessionState() {
+      const worker = await ours();
+      return worker.evaluate(() => chrome.storage.session.get(null));
     },
     async close() {
       await context.close();
