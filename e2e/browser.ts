@@ -32,9 +32,10 @@ async function poll<T>(
   }
 }
 
-export async function launchBrowser() {
+/** `profile` reuses a browser profile (to restart the browser); the caller then removes it. */
+export async function launchBrowser({ profile: existing }: { profile?: string } = {}) {
   const proxy = await startFixtureProxy();
-  const profile = mkdtempSync(join(tmpdir(), "ast-profile-"));
+  const profile = existing ?? mkdtempSync(join(tmpdir(), "ast-profile-"));
   const extensions = [join(root, "dist"), join(root, "e2e/driver-extension")].join(",");
   const context: BrowserContext = await chromium.launchPersistentContext(profile, {
     // The new headless mode supports extensions and tab groups; set E2E_HEADED=1 to watch.
@@ -331,7 +332,7 @@ export async function launchBrowser() {
     async close() {
       await context.close();
       await proxy.close();
-      rmSync(profile, { recursive: true, force: true });
+      if (!existing) rmSync(profile, { recursive: true, force: true });
     },
   };
 }
