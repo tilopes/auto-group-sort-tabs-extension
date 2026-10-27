@@ -10,9 +10,6 @@
   --danger: #c5221f;
   --radius: 10px;
   --gap: 12px;
-  font:
-    14px/1.4 system-ui,
-    sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +31,10 @@
 
 body {
   margin: 0;
+  /* Set on body: Chromium's default style for extension pages shrinks it to 75%. */
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
   background: var(--bg);
   color: var(--text);
 }
@@ -228,4 +229,167 @@ body.popup {
   border: 0;
   background: none;
   color: var(--accent);
+}
+
+/* Options page */
+
+body.options {
+  padding: 24px 16px 48px;
+}
+
+.options main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.options header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.options h1 {
+  font-size: 22px;
+}
+
+.options h2 {
+  margin: 0 0 8px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.options .row select,
+.options .row input:not([role="switch"]) {
+  flex: none;
+}
+
+#minTabs {
+  width: 72px;
+}
+
+.intro,
+.empty {
+  padding: var(--gap) 16px;
+}
+
+.empty {
+  border-top: 1px solid var(--border);
+}
+
+#rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#rules:not(:empty) ~ .empty {
+  display: none;
+}
+
+.rule {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--gap) 16px;
+  border-top: 1px solid var(--border);
+}
+
+.rule .head,
+.rule .match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rule .name {
+  flex: 1;
+}
+
+.rule .value {
+  flex: 1;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-right: -2px;
+  border: 1px dashed var(--muted);
+  border-radius: 50%;
+}
+
+.rule[data-color] .swatch {
+  border: 0;
+  background: var(--swatch);
+}
+
+.rule[data-color="grey"] {
+  --swatch: #5f6368;
+}
+.rule[data-color="blue"] {
+  --swatch: #1a73e8;
+}
+.rule[data-color="red"] {
+  --swatch: #d93025;
+}
+.rule[data-color="yellow"] {
+  --swatch: #f9ab00;
+}
+.rule[data-color="green"] {
+  --swatch: #1e8e3e;
+}
+.rule[data-color="pink"] {
+  --swatch: #d01884;
+}
+.rule[data-color="purple"] {
+  --swatch: #9334e6;
+}
+.rule[data-color="cyan"] {
+  --swatch: #007b83;
+}
+.rule[data-color="orange"] {
+  --swatch: #e8710a;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: var(--gap) 16px;
+  border-top: 1px solid var(--border);
+}
+
+.footer p {
+  margin-right: auto;
+  font-size: 12px;
+}
+
+.backup {
+  padding: 0 16px;
+}
+
+.backup textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+#status,
+#backupStatus {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#status.error,
+#backupStatus.error {
+  color: var(--danger);
 }
