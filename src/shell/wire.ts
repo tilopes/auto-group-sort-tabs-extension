@@ -4,6 +4,7 @@ import type { Trigger } from "../core/types.ts";
 import type { BrowserApi } from "./api.ts";
 import { execute } from "./executor.ts";
 import { createScheduler, type RunResult, type Work } from "./scheduler.ts";
+import { isOrganizeNowMessage } from "./messages.ts";
 import { createSettingsStore } from "./settings.ts";
 import { readSnapshot } from "./snapshot.ts";
 import { createStateStore } from "./state.ts";
@@ -144,8 +145,10 @@ export function wire(api: BrowserApi) {
 
   const organizeNow = (windowId: number) => scheduler.requestFull(windowId, "manual");
 
-  // The M4 popup replaces the toolbar click; the shortcut stays.
-  api.action.onClicked.addListener((tab) => organizeNow(tab.windowId));
+  // The popup asks for it; only the extension's own pages can send messages to it.
+  api.runtime.onMessage.addListener((message) => {
+    if (isOrganizeNowMessage(message)) organizeNow(message.windowId);
+  });
   api.commands.onCommand.addListener((command, tab) => {
     if (command === ORGANIZE_NOW_COMMAND && tab) organizeNow(tab.windowId);
   });

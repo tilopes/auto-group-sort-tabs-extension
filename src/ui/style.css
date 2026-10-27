@@ -1,0 +1,50 @@
+:root {
+  color-scheme: light dark;
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 12px;
+}
+
+body.popup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 240px;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button {
+  font: inherit;
+}
+
+button.primary {
+  padding: 6px 12px;
+}
+
+button.link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: LinkText;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+[role="status"]:empty {
+  display: none;
+}
+
+[role="status"] {
+  margin: 0;
+}

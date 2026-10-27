@@ -165,16 +165,16 @@ const unorganised = [
 ] as const;
 const organised = [{ group: "b.com", tabs: ["b.com/1", "b.com/2", "b.com/3"] }, "a.net", "z.org"];
 
-test("clicking the toolbar button groups and sorts the window, and a second click changes nothing", async () => {
+test("'Organize now' in the popup groups and sorts the window, and a second click changes nothing", async () => {
   const w = scenario(unorganised);
-  await w.clickToolbarButton();
+  await w.clickPopupOrganizeNow();
   assert.deepEqual(w.layout(), organised);
   w.browser.calls = [];
-  await w.clickToolbarButton();
+  await w.clickPopupOrganizeNow();
   assert.equal(w.browser.mutations().length, 0);
 });
 
-test("the keyboard shortcut does the same as the toolbar button", async () => {
+test("the keyboard shortcut does the same as the popup button", async () => {
   const w = scenario(unorganised);
   await w.pressShortcut();
   assert.deepEqual(w.layout(), organised);
@@ -197,4 +197,18 @@ test("in a window that is not focused, automatic sorting may move the active tab
   w.browser.activate("c.com");
   await w.settle();
   assert.deepEqual(w.layout(), ["b.com", "c.com", "d.com", "z.org"]);
+});
+
+test("a message that is not a well-formed 'Organize now' request does nothing", async () => {
+  const w = scenario(unorganised);
+  for (const message of [
+    undefined,
+    "organize-now",
+    { type: "other", windowId: 1 },
+    { type: "organize-now" },
+  ]) {
+    w.browser.sendMessage(message);
+  }
+  await w.settle();
+  assert.equal(w.browser.mutations().length, 0);
 });

@@ -5,7 +5,7 @@
   "description": "Automatically groups tabs into native tab groups and keeps them sorted.",
   "minimum_chrome_version": "121",
   "permissions": ["tabs", "tabGroups", "storage"],
-  "action": { "default_title": "Organize tabs now" },
+  "action": { "default_title": "Auto Sort Tabs", "default_popup": "ui/popup.html" },
   "commands": {
     "organize-now": {
       "suggested_key": { "default": "Alt+Shift+O" },

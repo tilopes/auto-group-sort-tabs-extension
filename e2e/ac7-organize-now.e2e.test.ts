@@ -66,7 +66,7 @@ e2e("AC-7: a second Organize now makes no move or group calls", async (browser, 
   assert.deepEqual(await calls(), []);
 });
 
-e2e("AC-7: the keyboard shortcut does the same as the toolbar button", async (_browser, w) => {
+e2e("AC-7: the keyboard shortcut does the same as the popup button", async (_browser, w) => {
   await openMessy(w);
   await w.organizeNow("shortcut");
   await w.waitForLayout(organised);

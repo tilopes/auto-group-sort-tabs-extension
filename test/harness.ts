@@ -42,9 +42,9 @@ export function scenario(specs: readonly TabSpec[], overrides: Partial<Settings>
       shell.organizeNow(WINDOW_ID);
       await drain();
     },
-    /** The toolbar button is clicked. */
-    async clickToolbarButton() {
-      browser.clickToolbarButton();
+    /** "Organize now" is clicked in the popup, which is open on this window. */
+    async clickPopupOrganizeNow() {
+      browser.sendMessage({ type: "organize-now", windowId: WINDOW_ID });
       await drain();
     },
     /** The keyboard shortcut is pressed. */

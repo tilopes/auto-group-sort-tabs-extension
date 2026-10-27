@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { chromium, type BrowserContext, type Worker } from "playwright";
+import { chromium, type BrowserContext, type Page, type Worker } from "playwright";
 import { startFixtureProxy } from "./fixture-proxy.ts";
 
 export type LayoutEntry = string | { group: string; tabs: string[] };
@@ -74,6 +74,23 @@ export async function launchBrowser() {
   const ours = () => workerNamed("Auto Sort Tabs");
   await ours();
 
+  /** Opens one of our pages as a tab of the window, so it acts on that window. */
+  async function openExtensionPage(windowId: number, path: string): Promise<Page> {
+    const worker = await ours();
+    const url = `chrome-extension://${new URL(worker.url()).host}/${path}`;
+    await worker.evaluate(({ windowId, url }) => chrome.tabs.create({ windowId, url }), {
+      windowId,
+      url,
+    });
+    const { value } = await poll(
+      async () => context.pages().find((page) => page.url() === url),
+      Boolean,
+      5_000,
+    );
+    if (!value) throw new Error(`${path} did not open`);
+    return value;
+  }
+
   async function newWindow() {
     // An unrelated tab to stay active while the test opens others in the background.
     const windowId = await driver.evaluate(async () => {
@@ -84,13 +101,17 @@ export async function launchBrowser() {
   }
 
   function windowHandle(windowId: number) {
+    // Our own pages (popup, options) are not part of the user's tab strip under test.
     const read = () =>
       driver.evaluate(async (windowId) => {
         const [tabs, groups] = await Promise.all([
           chrome.tabs.query({ windowId }),
           chrome.tabGroups.query({ windowId }),
         ]);
-        return { tabs, groups };
+        return {
+          tabs: tabs.filter((tab) => !tab.url?.startsWith("chrome-extension://")),
+          groups,
+        };
       }, windowId);
 
     const labelOf = (tab: chrome.tabs.Tab) =>
@@ -185,24 +206,28 @@ export async function launchBrowser() {
           { tabIds, title, color, windowId },
         );
       },
+      /** The popup, as a tab of this window (Playwright cannot open the real popup). */
+      openPopup: () => openExtensionPage(windowId, "ui/popup.html"),
       /**
-       * The user clicks the toolbar button or presses the shortcut. Playwright cannot press
-       * browser chrome, so the same event is dispatched to the extension's own listener.
+       * The user clicks "Organize now" in the popup, or presses the shortcut. Playwright cannot
+       * press browser chrome, so the shortcut event is dispatched to the extension's own listener.
        */
-      async organizeNow(how: "toolbar" | "shortcut" = "toolbar") {
+      async organizeNow(how: "popup" | "shortcut" = "popup") {
+        if (how === "popup") {
+          const popup = await openExtensionPage(windowId, "ui/popup.html");
+          await popup.click("#organize");
+          await popup.waitForEvent("close", { timeout: 2_000 }).catch(() => popup.close());
+          return;
+        }
         const worker = await ours();
-        await worker.evaluate(
-          async ({ windowId, how }) => {
-            const [tab] = await chrome.tabs.query({ windowId, active: true });
-            // Chromium's event objects have `dispatch`; the typings do not declare it.
-            type Dispatching = { dispatch(...args: unknown[]): void };
-            if (how === "toolbar")
-              (chrome.action.onClicked as unknown as Dispatching).dispatch(tab);
-            else
-              (chrome.commands.onCommand as unknown as Dispatching).dispatch("organize-now", tab);
-          },
-          { windowId, how },
-        );
+        await worker.evaluate(async (windowId) => {
+          const [tab] = await chrome.tabs.query({ windowId, active: true });
+          // Chromium's event objects have `dispatch`; the typings do not declare it.
+          (chrome.commands.onCommand as unknown as { dispatch(...args: unknown[]): void }).dispatch(
+            "organize-now",
+            tab,
+          );
+        }, windowId);
       },
       async groupColor(title: string) {
         const { groups } = await read();
@@ -240,6 +265,14 @@ export async function launchBrowser() {
     async setSettings(settings: Record<string, unknown>) {
       const worker = await ours();
       await worker.evaluate((settings) => chrome.storage.sync.set({ settings }), settings);
+    },
+    /** What is stored in storage.sync under `settings`. */
+    async storedSettings() {
+      const worker = await ours();
+      const settings = await worker.evaluate(
+        async () => (await chrome.storage.sync.get("settings")).settings,
+      );
+      return settings as Record<string, unknown>;
     },
     /** Stops our background worker the way the browser does when it has been idle. */
     async stopExtensionWorker() {
