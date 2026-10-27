@@ -459,15 +459,22 @@ any M1 spec.
   M2 executor must treat an empty result as failure and always pass `windowId`.
 - Chrome `tab.url` can be empty while loading: `snapshot.ts` should use `url || pendingUrl`.
 
-**Still to verify manually in real browsers (M2 contract suite, §8; steps in `docs/smoke-test.md`)**
-- The manifest loads and the ES-module background runs in Chrome/Edge/Brave and Firefox 139.
-- The shell against real events: `tabs.onUpdated`/`onCreated` payloads (`url`, `pendingUrl`),
-  `storage.session` availability and persistence across worker restarts, `windows.onCreated`
-  timing during session restore, and the 10 s startup window.
-- Group creation/update through `tabs.group` + `tabGroups.update` (including the ungroup-on-failure path).
+**M2 verified in real Chromium (`npm run test:e2e`, §8)**: AC-1…AC-6, AC-8, AC-9, including a
+stopped service worker. Findings:
+- Bug fixed: a tab created with a URL has `url: ""` (only `pendingUrl`) and a `tabs.query` moments
+  later may return neither, so a run left it alone and the later `onUpdated` was ignored because
+  the stored key was unchanged. `onCreated` now records the key only once the URL is known.
+- The fake was corrected: a tab added to a group lands on the side it came from, and an ungrouped
+  tab leaves towards the nearer end of its group (ties after it).
+- Playwright's `context.route` does not intercept main-frame loads of API-created tabs; the suite
+  uses a local proxy instead (needs the system `openssl`).
+
+**Still to verify manually in real browsers (steps in `docs/smoke-test.md`)**
+- The manifest loads and the ES-module background runs in Edge/Brave and Firefox 139.
+- Session restore: `windows.onCreated` timing during startup and the 10 s startup window.
 - Firefox 139 behaviour of `tabs.group`, `tabGroups.move/update` and array `tabs.move`.
-- Every "ASSUMPTION" in `test/fake-browser.ts` (drop-into-group, drop-out-of-group,
-  where new groups and ungrouped tabs land).
+- Remaining "ASSUMPTION"s in `test/fake-browser.ts`: dropping a tab into or out of a group with the
+  mouse (the e2e suite only uses the API equivalents).
 
 ## 8. Testing strategy
 
@@ -520,9 +527,10 @@ moved at most once), tests observe the number of browser API calls the fake reco
 - **Fake-browser contract suite:** the fake is only useful if it behaves like the real
   browsers, and Chrome and Firefox differ on edge cases (e.g. where `tabs.move` places a
   tab next to a group). A small set of scenarios (~10–15) runs against both the fake and
-  real browsers (Chrome via Playwright with the extension loaded; Firefox via `web-ext` if
-  feasible, otherwise manual) and asserts identical results. Any difference found becomes
-  a fake fix plus a scenario. Run in CI on demand / before release, not on every commit.
+  real browsers (Chromium via Playwright with the extension loaded, `npm run test:e2e`; Firefox
+  via `web-ext` if feasible, otherwise manual) and asserts identical results. Any difference found
+  becomes a fake fix plus a scenario. Run on demand / before release, not on every commit.
+  Playwright is a dev dependency only and never reaches `dist/` or the zip (NF-1).
 - **Manual / E2E:** `web-ext run` (Firefox) and `--load-extension` (Chrome) against a
   checklist mapped to the ACs.
 - **Matrix:** Chrome stable, Edge stable, Brave stable, Firefox stable, Firefox ESR (if ≥ 139).

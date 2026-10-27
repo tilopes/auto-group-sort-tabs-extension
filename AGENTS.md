@@ -12,7 +12,8 @@ automatically groups tabs into native tab groups and keeps them sorted.
 - `src/shell/`: browser-facing code (snapshot, executor, scheduler, storage, event wiring).
 - `src/background.ts`: entry point; `src/manifest.json`: single manifest for both browsers.
 - `test/`: behaviour specs plus `fake-browser.ts`, an in-memory browser.
-- `docs/smoke-test.md`: manual checks in real browsers.
+- `e2e/`: on-demand Chromium scenarios (Playwright, test-only driver extension).
+- `docs/smoke-test.md`: scenarios by AC (automated and manual) for real browsers.
 
 ## Setup and build commands
 
@@ -39,6 +40,8 @@ npm test               # node --test, runs .ts files directly
 npm run lint           # build + web-ext lint
 ```
 
+- `npm run test:e2e` runs the real-Chromium scenarios (`e2e/`, Playwright's bundled Chromium).
+  On demand only, not in CI. One-off: `npx playwright install chromium`; needs system `openssl`.
 - Run one file with `node --test test/grouping.test.ts`, or filter by name with
   `node --test --test-name-pattern "<name>" "test/**/*.test.ts"`.
 - Tests describe **functional behaviour at a public boundary**: either the whole extension
