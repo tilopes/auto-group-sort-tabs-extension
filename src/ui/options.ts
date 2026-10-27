@@ -10,6 +10,8 @@ import { loadSettings, saveSettings } from "../shell/settings.ts";
 import { byId, pageApi } from "./page-api.ts";
 
 const status = byId<HTMLElement>("status");
+const backupStatus = byId<HTMLElement>("backupStatus");
+const minTabsError = byId<HTMLElement>("minTabsError");
 const list = byId<HTMLOListElement>("rules");
 const template = byId<HTMLTemplateElement>("rule-template");
 const fields = {
@@ -44,7 +46,15 @@ function addRule(rule?: Rule) {
   field<HTMLSelectElement>(row, ".color").value = rule?.color ?? "";
   field<HTMLInputElement>(row, ".enabled").checked = rule?.enabled ?? true;
   showPlaceholder(row);
+  showColor(row);
   list.append(row);
+  return row;
+}
+
+function showColor(row: HTMLElement) {
+  const color = field<HTMLSelectElement>(row, ".color").value;
+  if (color) row.dataset.color = color;
+  else delete row.dataset.color;
 }
 
 function showPlaceholder(row: Element) {
@@ -81,7 +91,76 @@ const describe = (error: unknown) => {
     : message;
 };
 
-byId("addRule").addEventListener("click", () => addRule());
+let saveQueue = Promise.resolve();
+let debounce: ReturnType<typeof setTimeout> | undefined;
+let clearStatus: ReturnType<typeof setTimeout> | undefined;
+
+/** Writes to storage.sync are rate limited, so typing is saved after a pause. */
+const saveSoon = () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(saveNow, 600);
+};
+
+function saveNow() {
+  clearTimeout(debounce);
+  saveQueue = saveQueue.then(save);
+}
+
+function show(element: HTMLElement, text: string, kind: "saved" | "error" | "" = "") {
+  element.textContent = text;
+  element.className = kind;
+  if (element === status) {
+    clearTimeout(clearStatus);
+    if (kind === "saved") clearStatus = setTimeout(() => show(status, ""), 2500);
+  }
+}
+
+/** Saves what is valid; invalid rules and an invalid tab count keep their stored value. */
+async function save() {
+  const rows = [...list.children] as HTMLElement[];
+  const results = rows.map((row) => validateRule(readRule(row)));
+  let hasErrors = false;
+  rows.forEach((row, i) => {
+    const result = results[i]!;
+    const error = "error" in result && row.dataset.touched ? result.error : "";
+    field(row, ".error").textContent = error;
+    hasErrors ||= error !== "";
+  });
+  const rulesValid = results.every((result) => "rule" in result);
+  const minTabs = Number(fields.minTabs.value);
+  const minTabsValid = isMinTabs(minTabs);
+  minTabsError.textContent = minTabsValid
+    ? ""
+    : `Enter a whole number from ${minTabsLimits.min} to ${minTabsLimits.max}.`;
+  hasErrors ||= !minTabsValid;
+
+  try {
+    const current = await loadSettings(pageApi.storage);
+    const next = parseSettings({
+      ...current,
+      strategy: fields.strategy.value,
+      minTabs: minTabsValid ? minTabs : current.minTabs,
+      tabSort: fields.tabSort.value,
+      groupSort: fields.groupSort.value,
+      rules: rulesValid
+        ? results.flatMap((result) => ("rule" in result ? [result.rule] : []))
+        : current.rules,
+    });
+    if (JSON.stringify(next) !== JSON.stringify(current)) {
+      await saveSettings(pageApi.storage, next);
+      show(status, hasErrors ? "Saved, except the fields marked below." : "Saved", "saved");
+    } else if (hasErrors) {
+      show(status, "Not saved: fix the fields marked below.", "error");
+    }
+    if (!hasErrors && status.className === "error") show(status, "");
+  } catch (error) {
+    show(status, `Not saved: ${describe(error)}`, "error");
+  }
+}
+
+byId("addRule").addEventListener("click", () => {
+  addRule().querySelector<HTMLInputElement>(".name")!.focus();
+});
 
 list.addEventListener("click", ({ target }) => {
   const row = (target as Element).closest("li");
@@ -90,68 +169,57 @@ list.addEventListener("click", ({ target }) => {
   if (button.classList.contains("remove")) row.remove();
   else if (button.classList.contains("up")) row.previousElementSibling?.before(row);
   else if (button.classList.contains("down")) row.nextElementSibling?.after(row);
+  else return;
+  saveNow();
 });
 
 list.addEventListener("change", ({ target }) => {
-  if ((target as Element).classList.contains("type"))
-    showPlaceholder((target as Element).closest("li")!);
+  const row = (target as Element).closest<HTMLElement>("li")!;
+  if ((target as Element).classList.contains("type")) showPlaceholder(row);
+  if ((target as Element).classList.contains("color")) showColor(row);
 });
 
-byId("form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const rows = [...list.children];
-  const results = rows.map((row) => validateRule(readRule(row)));
-  rows.forEach((row, i) => {
-    const result = results[i]!;
-    field(row, ".error").textContent = "error" in result ? result.error : "";
-  });
-  if (results.some((result) => "error" in result)) {
-    status.textContent = "Not saved: fix the rules marked below.";
-    return;
-  }
-  if (!isMinTabs(Number(fields.minTabs.value))) return;
-  try {
-    const current = await loadSettings(pageApi.storage);
-    await saveSettings(
-      pageApi.storage,
-      parseSettings({
-        ...current,
-        strategy: fields.strategy.value,
-        minTabs: Number(fields.minTabs.value),
-        tabSort: fields.tabSort.value,
-        groupSort: fields.groupSort.value,
-        rules: results.flatMap((result) => ("rule" in result ? [result.rule] : [])),
-      }),
-    );
-    status.textContent = "Saved.";
-  } catch (error) {
-    status.textContent = `Not saved: ${describe(error)}`;
-  }
+// A rule's errors are shown once the user has left the row, not while they move between fields.
+list.addEventListener("focusout", ({ target, relatedTarget }) => {
+  const row = (target as Element).closest<HTMLElement>("li");
+  if (!row || row.contains(relatedTarget as Node | null)) return;
+  row.dataset.touched = "true";
+  saveNow();
 });
+
+// Text is saved after a pause or on blur; selects and switches fire only `change`.
+for (const target of [list, ...Object.values(fields)]) {
+  target.addEventListener("input", saveSoon);
+  target.addEventListener("change", saveNow);
+}
 
 const json = byId<HTMLTextAreaElement>("json");
 
 byId("export").addEventListener("click", async () => {
   json.value = JSON.stringify(await loadSettings(pageApi.storage), null, 2);
-  status.textContent = "";
+  show(backupStatus, "");
 });
 
 byId("import").addEventListener("click", async () => {
   const result = importSettings(json.value);
   if ("error" in result) {
-    status.textContent = `Not imported: ${result.error}.`;
+    show(backupStatus, `Not imported: ${result.error}.`, "error");
     return;
   }
   try {
     await saveSettings(pageApi.storage, result.settings);
   } catch (error) {
-    status.textContent = `Not imported: ${describe(error)}`;
+    show(backupStatus, `Not imported: ${describe(error)}`, "error");
     return;
   }
   render(result.settings);
-  status.textContent = result.skippedRules
-    ? `Imported. ${result.skippedRules} rule(s) were not valid and were skipped.`
-    : "Imported.";
+  show(
+    backupStatus,
+    result.skippedRules
+      ? `Imported. ${result.skippedRules} rule(s) were not valid and were skipped.`
+      : "Imported.",
+    "saved",
+  );
 });
 
 render(await loadSettings(pageApi.storage));

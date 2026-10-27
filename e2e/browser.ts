@@ -276,6 +276,16 @@ export async function launchBrowser({ profile: existing }: { profile?: string } 
       );
       return settings as Record<string, unknown>;
     },
+    /** Waits until the stored settings satisfy `done`: the options page saves after a pause. */
+    async savedSettings(done: (settings: Record<string, any>) => boolean) {
+      const { value, ok } = await poll(
+        async () => ((await this.storedSettings()) ?? {}) as Record<string, any>,
+        done,
+        5_000,
+      );
+      assert.ok(ok, `settings were not saved: ${JSON.stringify(value)}`);
+      return value;
+    },
     /** Stops our background worker the way the browser does when it has been idle. */
     async stopExtensionWorker() {
       const worker = await ours();

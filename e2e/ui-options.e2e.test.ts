@@ -29,10 +29,8 @@ const docsRule: RuleForm = {
 e2e("options: a new rule is saved and groups the next tabs", async (browser, w) => {
   const page = await w.openOptions();
   await addRule(page, docsRule);
-  await page.click("button[type=submit]");
-  await page.getByText("Saved.").waitFor();
 
-  const stored = await browser.storedSettings();
+  const stored = await browser.savedSettings((s) => s.rules?.[0]?.color === "blue");
   assert.deepEqual(stored.rules, [
     {
       name: "Docs",
@@ -66,10 +64,8 @@ e2e("options: strategy and group size apply without restarting", async (browser,
   assert.equal(await page.locator("#minTabs").inputValue(), "3");
   await page.selectOption("#strategy", "hostname");
   await page.fill("#minTabs", "2");
-  await page.click("button[type=submit]");
-  await page.getByText("Saved.").waitFor();
 
-  const stored = await browser.storedSettings();
+  const stored = await browser.savedSettings((s) => s.strategy === "hostname" && s.minTabs === 2);
   assert.equal(stored.strategy, "hostname");
   assert.equal(stored.minTabs, 2);
 
@@ -88,20 +84,39 @@ e2e(
   async (browser, w) => {
     const page = await w.openOptions();
     await addRule(page, { name: "Broken", type: "Regular expression", pattern: "^https://(docs" });
-    await page.click("button[type=submit]");
+    await page.locator("li.rule .value").blur();
 
     const error = page.locator("li.rule .error");
     await error.getByText(/regular expression/i).waitFor();
-    assert.match(await page.locator("#status").innerText(), /Not saved/);
+    await page.getByText(/Not saved/).waitFor();
     assert.equal(await browser.storedSettings(), undefined);
 
     await page.locator("li.rule").getByLabel("Pattern").fill("^https://docs\\.");
-    await page.click("button[type=submit]");
-    await page.getByText("Saved.").waitFor();
+    await browser.savedSettings((s) => s.rules?.length === 1);
     assert.equal(await error.innerText(), "");
-    assert.equal(((await browser.storedSettings()).rules as unknown[]).length, 1);
   },
 );
+
+e2e("options: a group size out of range is reported and not saved", async (browser, w) => {
+  const page = await w.openOptions();
+  await page.fill("#minTabs", "1");
+  await page.locator("#minTabs").blur();
+  await page
+    .locator("#minTabsError")
+    .getByText(/2 to 20/)
+    .waitFor();
+  assert.equal(await browser.storedSettings(), undefined);
+
+  await page.fill("#minTabs", "4");
+  await browser.savedSettings((s) => s.minTabs === 4);
+  assert.equal(await page.locator("#minTabsError").innerText(), "");
+});
+
+e2e("options: changes show a Saved indicator", async (_browser, w) => {
+  const page = await w.openOptions();
+  await page.selectOption("#tabSort", "url");
+  await page.locator("#status").getByText("Saved").waitFor();
+});
 
 e2e("options: rules can be reordered, switched off and removed", async (browser, w) => {
   const page = await w.openOptions();
@@ -111,12 +126,12 @@ e2e("options: rules can be reordered, switched off and removed", async (browser,
   await page.locator("li.rule").nth(1).getByLabel("Move up").click();
   await page.locator("li.rule").nth(2).getByLabel("Remove rule").click();
   await page.locator("li.rule").nth(1).locator(".enabled").uncheck();
-  await page.click("button[type=submit]");
-  await page.getByText("Saved.").waitFor();
 
-  const rules = (await browser.storedSettings()).rules as { name: string; enabled: boolean }[];
+  const { rules } = await browser.savedSettings(
+    (s) => s.rules?.length === 2 && s.rules[1].enabled === false,
+  );
   assert.deepEqual(
-    rules.map(({ name, enabled }) => [name, enabled]),
+    rules.map(({ name, enabled }: { name: string; enabled: boolean }) => [name, enabled]),
     [
       ["Second", true],
       ["First", false],
@@ -144,9 +159,7 @@ e2e("options: exported settings can be imported again", async (browser, w) => {
   const page = await w.openOptions();
   await addRule(page, docsRule);
   await page.selectOption("#strategy", "hostname");
-  await page.click("button[type=submit]");
-  await page.getByText("Saved.").waitFor();
-  const saved = await browser.storedSettings();
+  const saved = await browser.savedSettings((s) => s.strategy === "hostname" && s.rules?.length);
 
   await page.click("#export");
   const exported = await page.locator("#json").inputValue();
@@ -154,9 +167,7 @@ e2e("options: exported settings can be imported again", async (browser, w) => {
 
   await page.locator("li.rule").getByLabel("Remove rule").click();
   await page.selectOption("#strategy", "domain");
-  await page.click("button[type=submit]");
-  await page.getByText("Saved.").waitFor();
-  assert.notDeepEqual(await browser.storedSettings(), saved);
+  await browser.savedSettings((s) => s.strategy === "domain" && s.rules.length === 0);
 
   await page.locator("#json").fill(exported);
   await page.click("#import");

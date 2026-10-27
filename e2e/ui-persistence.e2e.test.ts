@@ -20,9 +20,9 @@ test(
       const row = page.locator("li.rule");
       await row.getByLabel("Group name").fill("Docs");
       await row.getByLabel("Pattern").fill("docs.github.com");
-      await page.click("button[type=submit]");
-      await page.getByText("Saved.").waitFor();
-      const saved = await first.storedSettings();
+      const saved = await first.savedSettings(
+        (s) => s.strategy === "hostname" && s.minTabs === 2 && s.rules?.length === 1,
+      );
       await first.close();
 
       const second = await launchBrowser({ profile });

@@ -2,92 +2,123 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Auto Sort Tabs settings</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="options">
-    <h1>Auto Sort Tabs</h1>
-    <form id="form">
-      <fieldset>
-        <legend>Grouping</legend>
-        <label>
-          Group tabs by
-          <select id="strategy">
-            <option value="domain">Domain (google.com)</option>
-            <option value="hostname">Hostname (mail.google.com)</option>
-          </select>
-        </label>
-        <label>
-          Tabs needed to form a group
-          <input id="minTabs" type="number" required step="1" />
-        </label>
-      </fieldset>
+    <main>
+      <header>
+        <h1>Auto Sort Tabs</h1>
+        <p id="status" role="status"></p>
+      </header>
 
-      <fieldset>
-        <legend>Sorting</legend>
-        <label>
-          Tabs within a group
-          <select id="tabSort">
-            <option value="title">By title</option>
-            <option value="url">By address</option>
-            <option value="lastAccessed">Most recently used first</option>
-          </select>
-        </label>
-        <label>
-          Groups
-          <select id="groupSort">
-            <option value="title">By name</option>
-            <option value="size">Largest first</option>
-            <option value="firstSeen">Oldest first</option>
-          </select>
-        </label>
-      </fieldset>
+      <section>
+        <h2>Grouping</h2>
+        <div class="card">
+          <label class="row">
+            <span class="text"
+              >Group tabs by
+              <span class="help">Domain: google.com. Hostname: mail.google.com.</span></span
+            >
+            <select id="strategy">
+              <option value="domain">Domain</option>
+              <option value="hostname">Hostname</option>
+            </select>
+          </label>
+          <label class="row">
+            <span class="text"
+              >Tabs needed to form a group
+              <span class="help">2 to 20. A group with one tab is dissolved.</span>
+              <span id="minTabsError" class="error" role="alert"></span>
+            </span>
+            <input id="minTabs" type="number" step="1" />
+          </label>
+        </div>
+      </section>
 
-      <fieldset>
-        <legend>Rules</legend>
-        <p>
-          The first rule that matches a tab decides its group; tabs no rule matches are grouped by
-          the setting above. A host pattern may start with <code>*.</code>.
-        </p>
-        <ol id="rules"></ol>
-        <button id="addRule" type="button">Add rule</button>
-      </fieldset>
+      <section>
+        <h2>Sorting</h2>
+        <div class="card">
+          <label class="row">
+            <span class="text">Tabs within a group</span>
+            <select id="tabSort">
+              <option value="title">By title</option>
+              <option value="url">By address</option>
+              <option value="lastAccessed">Most recently used first</option>
+            </select>
+          </label>
+          <label class="row">
+            <span class="text">Groups</span>
+            <select id="groupSort">
+              <option value="title">By name</option>
+              <option value="size">Largest first</option>
+              <option value="firstSeen">Oldest first</option>
+            </select>
+          </label>
+        </div>
+      </section>
 
-      <p>
-        <button type="submit" class="primary">Save</button>
-        <span id="status" role="status"></span>
-      </p>
-    </form>
+      <section>
+        <h2>Rules</h2>
+        <div class="card">
+          <p class="intro help">
+            The first rule that matches a tab decides its group; other tabs are grouped by the
+            setting above. A host pattern may start with <code>*.</code>.
+          </p>
+          <ol id="rules"></ol>
+          <p class="empty help">No rules yet.</p>
+          <div class="footer">
+            <button id="addRule" type="button">Add rule</button>
+          </div>
+        </div>
+      </section>
 
-    <section>
-      <h2>Import and export</h2>
-      <p>
-        Export shows the saved settings as JSON to copy; import replaces all settings with the JSON
-        pasted here.
-      </p>
-      <textarea id="json" rows="10" spellcheck="false" aria-label="Settings as JSON"></textarea>
-      <p>
-        <button id="export" type="button">Export</button>
-        <button id="import" type="button">Import</button>
-      </p>
-    </section>
+      <section>
+        <h2>Backup</h2>
+        <div class="card">
+          <p class="intro help">
+            Export shows the saved settings as JSON to copy. Import replaces all settings with the
+            JSON pasted here.
+          </p>
+          <div class="backup">
+            <textarea
+              id="json"
+              rows="8"
+              spellcheck="false"
+              aria-label="Settings as JSON"
+            ></textarea>
+          </div>
+          <div class="footer">
+            <p id="backupStatus" role="status"></p>
+            <button id="export" type="button">Export</button>
+            <button id="import" type="button">Import</button>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <template id="rule-template">
       <li class="rule">
-        <input class="name" aria-label="Group name" placeholder="Group name" />
-        <select class="type" aria-label="Match type">
-          <option value="host">Host</option>
-          <option value="prefix">URL prefix</option>
-          <option value="regex">Regular expression</option>
-        </select>
-        <input class="value" aria-label="Pattern" />
-        <select class="color" aria-label="Colour">
-          <option value="">Automatic colour</option>
-        </select>
-        <label><input class="enabled" type="checkbox" /> On</label>
-        <button type="button" class="up" aria-label="Move up">↑</button>
-        <button type="button" class="down" aria-label="Move down">↓</button>
-        <button type="button" class="remove" aria-label="Remove rule">✕</button>
+        <div class="head">
+          <input class="name" aria-label="Group name" placeholder="Group name" />
+          <span class="swatch" aria-hidden="true"></span>
+          <select class="color" aria-label="Colour">
+            <option value="">Automatic</option>
+          </select>
+          <input class="enabled" type="checkbox" role="switch" aria-label="Enabled" />
+          <button type="button" class="icon up" aria-label="Move up">↑</button>
+          <button type="button" class="icon down" aria-label="Move down">↓</button>
+          <button type="button" class="icon remove" aria-label="Remove rule">✕</button>
+        </div>
+        <div class="match">
+          <select class="type" aria-label="Match type">
+            <option value="host">Host</option>
+            <option value="prefix">URL prefix</option>
+            <option value="regex">Regular expression</option>
+          </select>
+          <input class="value" aria-label="Pattern" />
+        </div>
         <p class="error" role="alert"></p>
       </li>
     </template>
