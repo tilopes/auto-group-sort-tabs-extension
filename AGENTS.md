@@ -10,6 +10,8 @@ automatically groups tabs into native tab groups and keeps them sorted.
   rather than silently deviating.
 - `src/core/`: pure planning logic (classify → plan groups → plan order → diff).
 - `src/shell/`: browser-facing code (snapshot, executor, scheduler, storage, event wiring).
+- `src/ui/`: popup and options pages (plain DOM code, no framework); they talk to the worker
+  through `storage.sync` and `runtime.sendMessage`.
 - `src/background.ts`: entry point; `src/manifest.json`: single manifest for both browsers.
 - `test/`: behaviour specs plus `fake-browser.ts`, an in-memory browser.
 - `e2e/`: on-demand Chromium scenarios (Playwright, test-only driver extension).
