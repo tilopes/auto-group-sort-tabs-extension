@@ -20,6 +20,8 @@ type Slot = {
   dirty: Set<number>;
   deferred: Set<number>;
   full: Work["full"];
+  /** Something changed since the last run started; a run in progress may have missed it. */
+  changed: boolean;
   timer: ReturnType<typeof setTimeout> | undefined;
   firstEventAt: number;
   running: boolean;
@@ -48,6 +50,7 @@ export function createScheduler(
         dirty: new Set(),
         deferred: new Set(),
         full: null,
+        changed: false,
         timer: undefined,
         firstEventAt: 0,
         running: false,
@@ -78,6 +81,7 @@ export function createScheduler(
     slot.timer = undefined;
     const work: Work = { full: slot.full, dirtyTabIds: new Set([...slot.dirty, ...slot.deferred]) };
     slot.full = null;
+    slot.changed = false;
     slot.dirty.clear();
     slot.deferred.clear();
     slot.running = true;
@@ -98,7 +102,7 @@ export function createScheduler(
       slot.attempts = 0;
       result.deferred.forEach((id) => slot.deferred.add(id));
     }
-    if (slot.full || slot.dirty.size) schedule(windowId);
+    if (slot.full || slot.dirty.size || slot.changed) schedule(windowId);
   }
 
   return {
@@ -109,6 +113,7 @@ export function createScheduler(
     },
     /** Something changed in the window that may need tidying up, e.g. a tab was closed. */
     markChanged(windowId: number) {
+      slotOf(windowId).changed = true;
       schedule(windowId);
     },
     /** The whole window should be re-evaluated. */

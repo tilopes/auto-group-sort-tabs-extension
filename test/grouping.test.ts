@@ -270,6 +270,32 @@ test("a group left with one tab because a tab was moved into another group disso
   );
 });
 
+test("tabs closed while the extension is busy still dissolve a group left with one", async () => {
+  const w = scenario([
+    "bbc.co.uk/1",
+    "bbc.co.uk/2",
+    "bbc.co.uk/3",
+    { url: "other.org", active: true },
+  ]);
+  await w.organizeNow();
+
+  // The tabs go away after the run has looked at the window for the last time.
+  w.browser.duringNext("tabs.group", () =>
+    w.browser.duringNext("windows.get", () => {
+      w.browser.closeTab("bbc.co.uk/2");
+      w.browser.closeTab("bbc.co.uk/3");
+    }),
+  );
+  w.browser.openTab("github.com/a");
+  w.browser.openTab("github.com/b");
+  w.browser.openTab("github.com/c");
+  await w.settle();
+  assert.deepEqual(
+    w.layout().filter((entry) => typeof entry !== "string"),
+    [{ group: "github.com", tabs: ["github.com/a", "github.com/b", "github.com/c"] }],
+  );
+});
+
 test("a group the user reduced to its active tab dissolves once they switch away", async () => {
   const w = threeAndOther();
   await w.organizeNow();

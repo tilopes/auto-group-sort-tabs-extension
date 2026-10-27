@@ -88,6 +88,7 @@ export class FakeBrowser {
   touched = new Set<number>();
 
   #faults = new Map<string, number>();
+  #interruptions = new Map<string, () => void>();
   #refusedMoves = 0;
   #loading = new Map<number, string>();
   #tabs: FakeTab[] = [];
@@ -246,8 +247,18 @@ export class FakeBrowser {
     this.#refusedMoves = times;
   }
 
+  /** The user does something while the extension is in the middle of its next `call`. */
+  duringNext(call: string, action: () => void) {
+    this.#interruptions.set(call, action);
+  }
+
   #call(name: string) {
     this.calls.push(name);
+    const interruption = this.#interruptions.get(name);
+    if (interruption) {
+      this.#interruptions.delete(name);
+      interruption();
+    }
     const remaining = this.#faults.get(name) ?? 0;
     if (remaining > 0) {
       this.#faults.set(name, remaining - 1);
@@ -335,11 +346,11 @@ export class FakeBrowser {
   readonly api = {
     windows: {
       get: async (windowId: number) => {
-        this.calls.push("windows.get");
+        this.#call("windows.get");
         return { id: windowId, focused: this.focused };
       },
       getAll: async () => {
-        this.calls.push("windows.getAll");
+        this.#call("windows.getAll");
         return [{ id: WINDOW_ID }];
       },
       onCreated: this.onWindowCreated,
@@ -361,7 +372,7 @@ export class FakeBrowser {
       onRemoved: this.onRemoved,
       onActivated: this.onActivated,
       query: async ({ windowId }: { windowId?: number } = {}) => {
-        this.calls.push("tabs.query");
+        this.#call("tabs.query");
         return this.#tabs
           .filter((tab) => windowId === undefined || tab.windowId === windowId)
           .map((tab) => ({ ...tab }));
@@ -399,7 +410,7 @@ export class FakeBrowser {
     tabGroups: {
       onRemoved: this.onGroupRemoved,
       query: async ({ windowId }: { windowId?: number } = {}) => {
-        this.calls.push("tabGroups.query");
+        this.#call("tabGroups.query");
         return [...this.#groups.values()]
           .filter((group) => windowId === undefined || group.windowId === windowId)
           .map((group) => ({ ...group }));
