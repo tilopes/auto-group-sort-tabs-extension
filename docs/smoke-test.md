@@ -5,15 +5,15 @@ browsers: what `npm run test:e2e` automates in Chromium, and what only a person 
 Anything marked **RECORD** that differs from the expectation invalidates an `ASSUMPTION` in
 `test/fake-browser.ts` (and the tests built on it), so report it.
 
-There is no UI yet (M4). Automatic grouping is on, auto-sort is off (turn it on with
-`await api.storage.sync.set({settings: {autoSort: true}})` in the console), `minTabs` is 3.
-"Organize now" is the toolbar button or the shortcut Alt+Shift+O (Option+Shift+O on macOS);
-rebind it at `chrome://extensions/shortcuts`, or in Firefox _Add-ons → ⚙ → Manage Extension
-Shortcuts_. In Firefox the button lives in the Extensions (puzzle) menu until pinned.
+Defaults: automatic grouping on, auto-sort off, `minTabs` 3. The toggles are in the popup, the
+rest in the options page (scenarios 25–32). "Organize now" is the popup button or the shortcut
+Alt+Shift+O (Option+Shift+O on macOS); rebind it at `chrome://extensions/shortcuts`, or in Firefox
+_Add-ons → ⚙ → Manage Extension Shortcuts_. In Firefox the toolbar button lives in the Extensions
+(puzzle) menu until pinned. Scenarios below that say "turn auto-sort on" mean the popup toggle.
 
 ## Automated: `npm run test:e2e` (Chromium)
 
-Runs the AC-1…AC-9 scenarios (except the real clicks and keys) below in Playwright's bundled Chromium with the built extension
+Runs the AC-1…AC-10 scenarios (except the real clicks and keys) below in Playwright's bundled Chromium with the built extension
 loaded. It is on demand, not part of `npm test` or per-commit CI (PLAN §8).
 
 - One-off setup: `npx playwright install chromium`; the system `openssl` is needed too (the
@@ -25,6 +25,9 @@ loaded. It is on demand, not part of `npm test` or per-commit CI (PLAN §8).
 - A test-only driver extension (`e2e/driver-extension/`, not shipped) performs user actions
   through `tabs`/`tabGroups`; the extension under test only sees events. Assertions read the
   real tab strip.
+- The popup and options pages are opened as extension pages (`chrome-extension://<id>/ui/…`) in a
+  tab of the window under test and driven through the DOM; the popup's Organize now sends the same
+  message as in the real popup. A real toolbar click, and the popup's own window, are manual.
 - Not covered (manual, below): real mouse drags, restart/session restore, Firefox, Edge/Brave.
 
 ## Build and load (manual runs)
@@ -121,14 +124,15 @@ new group_)
     `https://example.com/`, `https://www.bbc.co.uk/sport`,
     `https://fr.wikipedia.org/wiki/Tabulation`, `https://github.com/prettier/prettier`,
     `https://www.bbc.co.uk/weather`. Three groups form in arrival order; nothing is sorted. Click
-    the toolbar button → `bbc.co.uk` (news, sport, weather), `github.com` (TypeScript, node,
+    the popup's Organize now → `bbc.co.uk` (news, sport, weather), `github.com` (TypeScript, node,
     prettier), `wikipedia.org` (de, en, fr), then `example.com`, `example.org`, `rust-lang.org`.
     The active tab is moved too. (The e2e fixture's page titles are the URLs. Real pages have
     other titles, so the order inside a group follows those.)
-19. Click again → nothing moves. (e2e counts `tabs.move/group/ungroup` and `tabGroups.move/update`
+19. Click Organize now again → nothing moves. (e2e counts `tabs.move/group/ungroup` and `tabGroups.move/update`
     calls: none.)
 20. Scramble the window and press the shortcut instead → same result as 18. **Manual:** do 18
-    with the real toolbar button and with the real shortcut, in Chrome and Firefox. **RECORD** if
+    with the real popup button (it acts on the window the popup belongs to; in Firefox check this
+    with two windows) and with the real shortcut, in Chrome and Firefox. **RECORD** if
     the shortcut does nothing (taken by another extension or the OS, or not assigned: the e2e
     only checks that Chromium registered it), and how the browser displays it.
 
@@ -150,13 +154,41 @@ new group_)
 24. Three each of `about:blank`, `chrome://settings`, `chrome://newtab`, `file:///etc/hosts`
     (Firefox: `about:blank`, `about:preferences`, `about:newtab`) → all ungrouped.
 
+**AC-10 Settings and UI** (25–30 automated in Chromium as extension pages; 31–32 manual)
+
+Open the options page from the popup's _Settings…_ button, or from `chrome://extensions` →
+Details → Extension options (Firefox: _about:addons_ → the extension → Preferences; it opens in
+a tab).
+
+25. Popup: the two toggles show the stored state (auto-group on, auto-sort off by default).
+    Switching auto-sort on and opening three out-of-order `github.com` tabs sorts them; turning
+    auto-group off stops new groups. Turning auto-group on does nothing by itself: the next tab
+    event or Organize now applies it.
+26. Options: add a rule _Docs_, host, `docs.github.com`; Save. Open `https://docs.github.com/a`,
+    `/b`, `/c` → one group "Docs". Changes need no restart.
+27. Options: set the strategy to hostname and `minTabs` to 2 → two tabs of `https://en.wikipedia.org/`
+    form a group named `en.wikipedia.org`; `minTabs` outside 2–20 is refused by the form.
+28. Options: add a regex rule `^https://(` → the error "Invalid regular expression…" shows next to
+    the rule and nothing is saved (reload: the rule is gone). Fix the pattern → it saves.
+29. Rules: move a rule up/down (first match wins), disable it, remove it; each takes effect on the
+    next run.
+30. Export → copy the JSON, remove all rules, Import the JSON → the rules are back. Importing
+    text that is not JSON, or has `"version": 2`, changes nothing and says why; rules with an
+    invalid pattern are skipped and counted.
+31. **Manual:** with the browser in Chrome signed in to sync (or Firefox Sync with add-ons
+    enabled), change a rule on one device → it appears on another (`storage.sync`). **RECORD**
+    if not.
+32. **Manual:** import 120 rules (e.g. a script-generated JSON) → "Not imported: …quota…" (Chrome:
+    `QUOTA_BYTES_PER_ITEM`; Firefox: its own wording). **RECORD** the Firefox text. Restart the
+    browser → options and toggles are as saved (automated for Chromium).
+
 ## Manual only
 
 **M-1 Loads and runs.** After loading, the console and the extension card show no errors; the
 ES-module background starts in both browsers (Chrome uses `service_worker`, Firefox `scripts`).
 **RECORD** any error text.
 
-**M-2 Firefox.** Run scenarios 1–24 by hand. Also: `tabs.group` + `tabGroups.update(g, {title:
+**M-2 Firefox.** Run scenarios 1–30 by hand. Also: `tabs.group` + `tabGroups.update(g, {title:
 "T", color:"blue"})` succeed and show title and colour; `tabGroups.move(g, {index: 0})` with a
 pinned tab present is refused, `{index: -1}` moves it to the end. **RECORD** errors.
 
@@ -182,12 +214,12 @@ the nearer end of the group, ties after it).
 Still open; run in the background console in a fresh window of unrelated domains (`a1.test`,
 `a2.test`, …), `await dump()` after each, and **RECORD** the output:
 
-25. **Drop into a group (mouse).** Group of `[x, y]`; drag an ungrouped tab between them. Assumed:
+33. **Drop into a group (mouse).** Group of `[x, y]`; drag an ungrouped tab between them. Assumed:
     it joins (`groupId` equals theirs). **RECORD** the resulting `groupId` and whether it differs
     from `await api.tabs.move(z, {index: <index of y>})`.
-26. **Drop out of a group (mouse).** Drag a grouped tab to the end of the strip. Assumed: it
+34. **Drop out of a group (mouse).** Drag a grouped tab to the end of the strip. Assumed: it
     leaves the group (`groupId` -1). **RECORD** if it stays or the browser refuses.
-27. **Firefox array `tabs.move` at the pinned boundary.** Pin one tab, then
+35. **Firefox array `tabs.move` at the pinned boundary.** Pin one tab, then
     `await api.tabs.move([idOfUnpinned], {index: 0})`. Assumed: Chrome rejects or clamps, Firefox
     resolves `[]` (the executor treats that as failure). Also `await api.tabs.move([idA, idB],
 {index: 3})` for two unpinned tabs: both move, result has two tabs. **RECORD** the return value,
