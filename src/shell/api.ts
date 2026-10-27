@@ -38,7 +38,7 @@ export type BrowserApi = {
     }): Promise<number>;
     ungroup(tabIds: number[]): Promise<void>;
     onCreated: BrowserEvent<[ApiTab]>;
-    onUpdated: BrowserEvent<[number, { url?: string }, ApiTab]>;
+    onUpdated: BrowserEvent<[number, { url?: string; groupId?: number }, ApiTab]>;
     onRemoved: BrowserEvent<[number, { windowId: number; isWindowClosing: boolean }]>;
     onActivated: BrowserEvent<[{ tabId: number; windowId: number }]>;
   };

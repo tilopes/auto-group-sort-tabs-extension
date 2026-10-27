@@ -210,6 +210,90 @@ test("a group reduced to its active tab dissolves once the user switches away", 
   assert.deepEqual(w.layout(), ["github.com/a", "other.org"]);
 });
 
+const threeAndOther = () =>
+  scenario(["github.com/a", "github.com/b", "github.com/c", { url: "other.org", active: true }]);
+
+test("a group dissolves when the user takes tabs out until one is left", async () => {
+  const w = threeAndOther();
+  await w.organizeNow();
+
+  w.browser.userUngroup("github.com/c");
+  await w.settle();
+  assert.deepEqual(w.layout()[0], { group: "github.com", tabs: ["github.com/a", "github.com/b"] });
+
+  w.browser.userUngroup("github.com/b");
+  await w.settle();
+  assert.ok(
+    w.layout().every((entry) => typeof entry === "string"),
+    "no group is left",
+  );
+});
+
+test("a group dissolves when the user drags its tabs out one at a time", async () => {
+  const w = threeAndOther();
+  await w.organizeNow();
+
+  w.browser.dragTab("github.com/c", 3);
+  w.browser.userUngroup("github.com/c");
+  await w.settle();
+  w.browser.dragTab("github.com/b", 3);
+  w.browser.userUngroup("github.com/b");
+  await w.settle();
+  assert.ok(
+    w.layout().every((entry) => typeof entry === "string"),
+    "no group is left",
+  );
+});
+
+test("a group left with one tab because a tab was moved into another group dissolves", async () => {
+  const w = scenario([
+    "github.com/a",
+    "github.com/b",
+    "bbc.co.uk/1",
+    "bbc.co.uk/2",
+    "bbc.co.uk/3",
+    "github.com/c",
+    { url: "other.org", active: true },
+  ]);
+  await w.organizeNow();
+
+  w.browser.userMoveIntoGroup("github.com/a", "bbc.co.uk");
+  w.browser.userMoveIntoGroup("github.com/b", "bbc.co.uk");
+  await w.settle();
+  assert.ok(
+    w.layout().every((entry) => typeof entry === "string" || entry.group === "bbc.co.uk"),
+    "the github.com group is gone",
+  );
+  assert.ok(
+    w.layout().some((entry) => typeof entry !== "string" && entry.tabs.includes("github.com/a")),
+    "the moved tab is in the group it was put into",
+  );
+});
+
+test("a group the user reduced to its active tab dissolves once they switch away", async () => {
+  const w = threeAndOther();
+  await w.organizeNow();
+
+  w.browser.activate("github.com/a");
+  w.browser.userUngroup("github.com/c");
+  w.browser.userUngroup("github.com/b");
+  await w.settle();
+  assert.deepEqual(
+    w.layout().find((entry) => typeof entry !== "string"),
+    {
+      group: "github.com",
+      tabs: ["github.com/a"],
+    },
+  );
+
+  w.browser.activate("other.org");
+  await w.settle();
+  assert.ok(
+    w.layout().every((entry) => typeof entry === "string"),
+    "no group is left",
+  );
+});
+
 test("navigating to a domain with an existing group joins it, even below the threshold", async () => {
   const w = scenario([
     "github.com/a",

@@ -219,6 +219,16 @@ export class FakeBrowser {
     this.#moveTabs([this.idOf(tabId)], index);
   }
 
+  /** The user takes tabs out of their group ("Remove from group", or a drag out). */
+  userUngroup(...tabIds: (number | string)[]) {
+    this.#ungroup(tabIds.map((tab) => this.idOf(tab)));
+  }
+
+  /** The user drops a tab into the group with this title. */
+  userMoveIntoGroup(tabId: number | string, title: string) {
+    this.#addToGroup([this.idOf(tabId)], this.group(title).id);
+  }
+
   /** User groups tabs by hand; the group is not ours. */
   userGroup(tabIds: (number | string)[], title: string): number {
     const id = this.#createGroup(tabIds.map((tab) => this.idOf(tab)));

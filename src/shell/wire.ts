@@ -94,6 +94,9 @@ export function wire(api: BrowserApi) {
   });
 
   api.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Leaving or entering a group can leave a group with one tab. The tab is not marked dirty:
+    // the user put it there (AC-6), only the window needs tidying up.
+    if (changeInfo.groupId !== undefined) scheduler.markChanged(tab.windowId);
     if (changeInfo.url === undefined) return;
     const next = classify({ url: changeInfo.url }, await settingsStore.get())?.title ?? null;
     const { keys } = await stateStore.get();
