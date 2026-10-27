@@ -128,7 +128,11 @@ test("a tab the user dragged into a group stays there until it navigates elsewhe
   w.browser.navigate("x.org", "other.net");
   w.browser.activate("github.com/a");
   await w.settle();
-  assert.ok(!JSON.stringify(w.layout()[0]).includes("other.net"));
+  assert.deepEqual(w.layout(), [
+    "other.net",
+    { group: "github.com", tabs: ["github.com/a", "github.com/b", "github.com/c"] },
+    "unrelated.net",
+  ]);
 });
 
 test("'Organize now' re-evaluates tabs the user moved by hand", async () => {

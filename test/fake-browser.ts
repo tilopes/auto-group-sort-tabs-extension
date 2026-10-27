@@ -517,17 +517,17 @@ export class FakeBrowser {
 
   #ungroup(ids: number[]) {
     for (const tab of ids.map((id) => this.#tab(id))) {
-      const members = this.#tabs.filter((candidate) => candidate.groupId === tab.groupId);
       if (tab.groupId === NO_GROUP) continue;
-      const isMiddle = tab !== members[0] && tab !== members.at(-1);
       const groupId = tab.groupId;
+      const members = this.#tabs.filter((candidate) => candidate.groupId === groupId);
+      const position = members.indexOf(tab);
       this.#setGroup(tab, NO_GROUP);
-      // ASSUMPTION: a tab ungrouped from the middle of a group lands right after the group.
-      if (isMiddle)
-        this.#place(
-          [tab],
-          this.#tabs.findLastIndex((t) => t.groupId === groupId),
-        );
+      // Verified in Chromium (e2e): a tab leaves towards the nearer end of its group, after it on a tie.
+      const rest = this.#tabs.filter((candidate) => candidate !== tab);
+      const first = rest.findIndex((candidate) => candidate.groupId === groupId);
+      if (first === -1) continue;
+      const before = position < members.length - 1 - position;
+      this.#place([tab], before ? first : rest.findLastIndex((t) => t.groupId === groupId) + 1);
     }
     this.#dropEmptyGroups();
     this.#assertValid();

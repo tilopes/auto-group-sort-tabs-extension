@@ -44,3 +44,18 @@ test("a tab added to a group lands on the side it came from", async () => {
   await b.api.tabs.group({ tabIds: [b.idOf("r.com")], groupId: b.group("G").id });
   assert.deepEqual(b.layout(), [{ group: "G", tabs: ["l.com", "x", "y", "r.com"] }]);
 });
+
+test("a tab ungrouped from a group leaves towards the nearer end", async () => {
+  const members = ["a", "b", "c", "d", "e"].map((url) => ({ url, group: "G" }));
+  for (const [victim, expected] of [
+    ["a", ["a", { group: "G", tabs: ["b", "c", "d", "e"] }]],
+    ["b", ["b", { group: "G", tabs: ["a", "c", "d", "e"] }]],
+    ["c", [{ group: "G", tabs: ["a", "b", "d", "e"] }, "c"]],
+    ["d", [{ group: "G", tabs: ["a", "b", "c", "e"] }, "d"]],
+    ["e", [{ group: "G", tabs: ["a", "b", "c", "d"] }, "e"]],
+  ] as const) {
+    const b = new FakeBrowser(members);
+    await b.api.tabs.ungroup(b.idOf(victim));
+    assert.deepEqual(b.layout(), expected, victim);
+  }
+});
