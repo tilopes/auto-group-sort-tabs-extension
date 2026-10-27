@@ -74,6 +74,25 @@ export function validateRule(raw: unknown): RuleResult {
   };
 }
 
+export type ImportResult = { settings: Settings; skippedRules: number } | { error: string };
+
+/** Settings from JSON text a user pasted, e.g. an earlier export; refuses what is not settings. */
+export function importSettings(json: string): ImportResult {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch (error) {
+    return { error: `Not valid JSON (${error instanceof Error ? error.message : error})` };
+  }
+  if (!isRecord(raw)) return { error: "Expected a settings object" };
+  if (raw.version !== undefined && raw.version !== defaultSettings.version) {
+    return { error: `Unsupported settings version ${JSON.stringify(raw.version)}` };
+  }
+  const settings = parseSettings(raw);
+  const given = Array.isArray(raw.rules) ? raw.rules.length : 0;
+  return { settings, skippedRules: given - settings.rules.length };
+}
+
 /**
  * The effective settings for whatever was stored: every field that is missing or invalid takes
  * its default, and rules that cannot be used are dropped. Settings written by a schema version

@@ -1,4 +1,10 @@
-import { isMinTabs, minTabsLimits, parseSettings, validateRule } from "../core/settings.ts";
+import {
+  importSettings,
+  isMinTabs,
+  minTabsLimits,
+  parseSettings,
+  validateRule,
+} from "../core/settings.ts";
 import { groupColors, type Rule, type Settings } from "../core/types.ts";
 import { loadSettings, saveSettings } from "../shell/settings.ts";
 import { byId, pageApi } from "./page-api.ts";
@@ -121,6 +127,31 @@ byId("form").addEventListener("submit", async (event) => {
   } catch (error) {
     status.textContent = `Not saved: ${describe(error)}`;
   }
+});
+
+const json = byId<HTMLTextAreaElement>("json");
+
+byId("export").addEventListener("click", async () => {
+  json.value = JSON.stringify(await loadSettings(pageApi.storage), null, 2);
+  status.textContent = "";
+});
+
+byId("import").addEventListener("click", async () => {
+  const result = importSettings(json.value);
+  if ("error" in result) {
+    status.textContent = `Not imported: ${result.error}.`;
+    return;
+  }
+  try {
+    await saveSettings(pageApi.storage, result.settings);
+  } catch (error) {
+    status.textContent = `Not imported: ${describe(error)}`;
+    return;
+  }
+  render(result.settings);
+  status.textContent = result.skippedRules
+    ? `Imported. ${result.skippedRules} rule(s) were not valid and were skipped.`
+    : "Imported.";
 });
 
 render(await loadSettings(pageApi.storage));

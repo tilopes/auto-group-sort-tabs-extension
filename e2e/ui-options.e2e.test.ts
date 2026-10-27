@@ -139,3 +139,51 @@ e2e("options: the popup links to the options page", async (_browser, w) => {
   const page = await opened;
   assert.match(page.url(), /\/ui\/options\.html$/);
 });
+
+e2e("options: exported settings can be imported again", async (browser, w) => {
+  const page = await w.openOptions();
+  await addRule(page, docsRule);
+  await page.selectOption("#strategy", "hostname");
+  await page.click("button[type=submit]");
+  await page.getByText("Saved.").waitFor();
+  const saved = await browser.storedSettings();
+
+  await page.click("#export");
+  const exported = await page.locator("#json").inputValue();
+  assert.deepEqual(JSON.parse(exported), saved);
+
+  await page.locator("li.rule").getByLabel("Remove rule").click();
+  await page.selectOption("#strategy", "domain");
+  await page.click("button[type=submit]");
+  await page.getByText("Saved.").waitFor();
+  assert.notDeepEqual(await browser.storedSettings(), saved);
+
+  await page.locator("#json").fill(exported);
+  await page.click("#import");
+  await page.getByText("Imported.").waitFor();
+  assert.deepEqual(await browser.storedSettings(), saved);
+  assert.equal(await page.locator("#strategy").inputValue(), "hostname");
+  assert.equal(await page.locator("li.rule").count(), 1);
+});
+
+e2e("options: an import that is not settings changes nothing", async (browser, w) => {
+  const page = await w.openOptions();
+  await page.locator("#json").fill('{"version": 2, "autoSort": true}');
+  await page.click("#import");
+  await page.getByText(/Not imported: Unsupported settings version/).waitFor();
+  await page.locator("#json").fill("{ nope");
+  await page.click("#import");
+  await page.getByText(/Not imported: Not valid JSON/).waitFor();
+  assert.equal(await browser.storedSettings(), undefined);
+});
+
+e2e("options: an import skips invalid rules and reports it", async (browser, w) => {
+  const page = await w.openOptions();
+  const good = { name: "Docs", enabled: true, match: { type: "host", pattern: "docs.github.com" } };
+  const bad = { name: "Bad", enabled: true, match: { type: "regex", pattern: "(" } };
+  await page.locator("#json").fill(JSON.stringify({ rules: [good, bad] }));
+  await page.click("#import");
+  await page.getByText("Imported. 1 rule(s) were not valid and were skipped.").waitFor();
+  assert.deepEqual((await browser.storedSettings()).rules, [good]);
+  assert.equal(await page.locator("li.rule").count(), 1);
+});

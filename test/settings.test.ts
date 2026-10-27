@@ -1,7 +1,7 @@
 // What the extension does with the settings it finds in storage.sync, and how they take effect.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseSettings, validateRule } from "../src/core/settings.ts";
+import { importSettings, parseSettings, validateRule } from "../src/core/settings.ts";
 import { defaultSettings } from "../src/core/types.ts";
 import { scenario } from "./harness.ts";
 
@@ -125,4 +125,31 @@ test("a settings change applies to the next tabs without restarting the extensio
     w.layout().every((entry) => typeof entry === "string" || entry.group === "github.com"),
     "no group for gitlab.com while auto-group is off",
   );
+});
+
+test("exported settings import back unchanged", () => {
+  const settings = {
+    ...defaultSettings,
+    autoSort: true,
+    minTabs: 4,
+    rules: [parseSettings({ rules: [docs] }).rules[0]!],
+  };
+  assert.deepEqual(importSettings(JSON.stringify(settings, null, 2)), {
+    settings,
+    skippedRules: 0,
+  });
+});
+
+test("an import keeps what is valid and says how many rules it had to skip", () => {
+  const result = importSettings(JSON.stringify({ autoSort: true, rules: [docs, { name: "" }, 3] }));
+  assert.ok("settings" in result);
+  assert.equal(result.settings.autoSort, true);
+  assert.equal(result.settings.rules.length, 1);
+  assert.equal(result.skippedRules, 2);
+});
+
+test("an import refuses what is not settings of this version", () => {
+  for (const text of ["", "{", "[]", "null", "42", '{"version":2}']) {
+    assert.ok("error" in importSettings(text), text);
+  }
 });

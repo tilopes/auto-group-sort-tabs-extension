@@ -59,6 +59,19 @@
       </p>
     </form>
 
+    <section>
+      <h2>Import and export</h2>
+      <p>
+        Export shows the saved settings as JSON to copy; import replaces all settings with the JSON
+        pasted here.
+      </p>
+      <textarea id="json" rows="10" spellcheck="false" aria-label="Settings as JSON"></textarea>
+      <p>
+        <button id="export" type="button">Export</button>
+        <button id="import" type="button">Import</button>
+      </p>
+    </section>
+
     <template id="rule-template">
       <li class="rule">
         <input class="name" aria-label="Group name" placeholder="Group name" />
