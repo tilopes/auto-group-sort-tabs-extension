@@ -36,7 +36,9 @@ const field = <T extends HTMLElement>(row: Element, selector: string) =>
 function addRule(rule?: Rule) {
   const row = template.content.firstElementChild!.cloneNode(true) as HTMLLIElement;
   for (const color of groupColors) {
-    field<HTMLSelectElement>(row, ".color").append(new Option(color, color));
+    field<HTMLSelectElement>(row, ".color").append(
+      new Option(color[0]!.toUpperCase() + color.slice(1), color),
+    );
   }
   const match = rule?.match ?? { type: "host" as const, pattern: "" };
   field<HTMLInputElement>(row, ".name").value = rule?.name ?? "";
