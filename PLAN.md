@@ -117,6 +117,7 @@ src/
   background.ts          # entry point: wire(browserApi)
   core/                  # pure, no `api.*` usage (enforced by tsconfig.core.json)
     types.ts             # TabInfo, GroupInfo, WindowSnapshot, Op, Settings
+    settings.ts          # parse/validate/import settings (pure)
     classify.ts          # key strategies + rule matching
     domain.ts            # hostname → registrable domain (eTLD+1)
     suffixes.generated.ts  # two-label PSL suffixes, generated — do not edit
@@ -130,7 +131,8 @@ src/
     snapshot.ts          # reads tabs/groups for a window → WindowSnapshot
     executor.ts          # applies Op[] with error handling
     scheduler.ts         # debounce, per-window serialization, dirty re-run
-    settings.ts          # load/validate/migrate settings (storage.sync)
+    settings.ts          # load/save settings (storage.sync); validation is core/settings.ts
+    messages.ts          # popup → worker message
     state.ts             # owned groups + pending tabs (storage.session)
   ui/
     popup.html / popup.ts      # "Organize now", toggle auto mode
@@ -264,7 +266,7 @@ the browser enforces anyway).
 | Trigger | Grouping | Sorting |
 |---|---|---|
 | Tab created / URL host changed | auto (default on) | auto (default **off**) |
-| Toolbar "Organize now" / keyboard command | ✔ | ✔ |
+| Popup "Organize now" / keyboard command | ✔ | ✔ |
 | Browser startup / first install | ✔ (once, after storms settle; only if auto-group on) | only if auto-sort on |
 
 Auto-sort is off by default because tabs jumping around while browsing is disruptive.
@@ -282,8 +284,8 @@ Automatic runs (grouping or sorting) follow the incremental scope and active-tab
 | Service worker / event page killed mid-run | All persistent state in `storage.session`; next event re-runs and converges |
 | User drags a tab during apply (API errors) | Executor aborts on first error, reschedules a fresh run (new snapshot) |
 | API call cost (IPC dominates, not CPU) | LIS minimal diff + batched `tabs.move` + one `tabs.group` call per group |
-| Regex cost | Compile once per settings version; reject invalid/unsafe patterns in options UI |
-| `storage.sync` quotas (8 KB/item, 100 KB total) | Rules stored as one compact array; cap at ~200 rules |
+| Regex cost | Compile once per settings version; reject patterns that do not compile in the options UI (no ReDoS heuristic, see §7.1) |
+| `storage.sync` quotas (8 KB/item, 100 KB total) | Rules stored in one `settings` item (≈ 8 KB: on the order of 80 rules); a refused write is shown, not hidden (§7.1) |
 | Many windows | Windows are independent units; only dirty windows are processed |
 | Discarded/unloaded tabs | Use `tab.url` / `title` only; never activate or reload tabs |
 
@@ -365,7 +367,7 @@ flowchart LR
 - Satisfy AC-7, AC-8.
 
 **M4 — UI & settings**
-- `settings.ts` with schema version + migration.
+- `settings.ts` with schema version (no migration code until a second version exists).
 - Popup (organize now, auto toggles) and options page (strategy, rules editor with
   validation, import/export JSON). Plain HTML/CSS, no framework.
 - Satisfy AC-10.
@@ -375,17 +377,53 @@ flowchart LR
 - Real-browser contract suite (§8) for Chrome; Firefox via `web-ext` if feasible.
 - Store listings (Chrome Web Store, AMO), icons, README, privacy statement (no data collected).
 
-### 7.1 Status after M2 and deviations from the plan
+### 7.1 Status after M4 and deviations from the plan
 
-M0, M1, M2 and M3 are done (`npm run typecheck`, `format:check`, `test` (108 tests) and `lint`
-pass; zip ≈ 28 KB). All behaviour specs run through the real shell (`src/shell/*`) against the
+M0 to M4 are done (`npm run typecheck`, `format:check`, `test` (121 tests), `lint` and
+`test:e2e` pass; zip ≈ 36 KB). All behaviour specs run through the real shell (`src/shell/*`) against the
 fake browser with mocked timers (`test/harness.ts`); the shell was added without changing
 any M1 spec.
+
+**M4 (UI & settings): what it added**
+- **Settings (`core/settings.ts`, pure; `shell/settings.ts` loads/saves):** `parseSettings`
+  validates what is read from `storage.sync`: unknown or invalid fields fall back to their
+  defaults, invalid rules are dropped, `minTabs` must be an integer 2–20. Settings carry
+  `version: 1`. **No migration code** (YAGNI: nothing has shipped): a stored `version` the reader
+  does not know is ignored as a whole (defaults apply); missing fields default. Validation lives
+  in core rather than the shell because it is pure and testable without a browser.
+- **Regex rules:** "reject unsafe patterns" (§5) is reduced to "must compile". Reliable ReDoS
+  detection needs a dependency, and a heuristic would give false assurance. The classifier still
+  skips a rule that fails to compile.
+- **Quota:** all settings stay in one `settings` item, capped by the browser at about 8 KB. §5's
+  "cap at ~200 rules" is dropped; the options page shows the refusal on Save and on Import
+  ("Not imported: …quota…" was checked in Chromium). No sharding.
+- **Popup:** Organize now for the window it belongs to, auto-group and auto-sort toggles, and a
+  _Settings…_ button. A popup cannot call the worker, so it sends an `organize-now` message
+  (`shell/messages.ts`, handled by `runtime.onMessage` in `wire.ts`). `action.onClicked` is
+  removed; the `Alt+Shift+O` command stays. Toggling auto-group on does nothing immediately: the
+  next tab event or Organize now applies it (a surprise reorganisation on a switch seemed worse).
+  Toggling writes `storage.sync` directly; the worker's store reloads on `storage.onChanged`, so
+  every change applies on the next run with no restart.
+- **Options page** (`options_ui` with `open_in_tab`): strategy, `minTabs`, tab and group sort,
+  and a rules editor (name, colour, enabled, host/prefix/regex, reorder because the first match
+  wins). Save is explicit and all-or-nothing: an invalid rule shows its error inline and nothing
+  is written. It writes over the freshly read stored settings, so toggles changed in the popup
+  meanwhile are kept. Import/export is a text area (no file picker, no extra permission):
+  Import replaces all settings, refuses text that is not JSON, not an object or of an unknown
+  `version`, and reports how many invalid rules it skipped.
+- **AC-10:** persistence is `storage.sync`; the e2e relaunches Chromium on the same profile and
+  checks the stored settings, the form and that the restarted extension applies them. Syncing
+  between devices is the browser's job and is manual (smoke-test 31).
+- **e2e:** pages open as extension pages in a tab (`chrome-extension://<id>/ui/…`), which the
+  layout helper ignores. The old toolbar-click path is gone.
+- **Still manual:** the real popup in Chrome and Firefox (rendering, `windows.getCurrent()` from
+  the popup in Firefox, closing), the options page from `chrome://extensions` / `about:addons`,
+  the quota wording in Firefox, device sync, Edge/Brave.
 
 **M3 (sorting): what it added**
 - Most of the work was already in the core (`manual` mode, `planOrder`, active-tab rule). M3 adds
   the triggers and the real-browser checks.
-- **Triggers:** `manifest.json` gains `action` (title only, no popup, so clicks reach
+- **Triggers:** `manifest.json` gains `action` (title only; M4 added the popup, which replaced
   `action.onClicked`) and a `commands.organize-now` entry with suggested key `Alt+Shift+O`
   (not Cmd+Shift+O: the bookmark manager on macOS). Both run the manual full-window pass on the
   window of the tab they came from. No new permissions (NF-2). The M4 popup replaces the
@@ -432,7 +470,7 @@ any M1 spec.
   same-domain navigation of a tab the user dragged out of a group does not retarget it.
   A tab never seen before (e.g. opened while the worker was gone) counts as changed.
 - **Settings:** `shell/settings.ts` is a minimal reader of `storage.sync.settings` over the
-  defaults, reloaded on `storage.onChanged`. Validation/migration/UI remain M4.
+  defaults, reloaded on `storage.onChanged` (validation and UI came in M4).
 - **Not implemented (YAGNI, noted):** a focus change alone does not retry a deferred tab; the
   scheduler's dirty/deferred sets live in memory, so a worker killed within the 2 s window
   loses that work (the next event or "Organize now" recovers).
