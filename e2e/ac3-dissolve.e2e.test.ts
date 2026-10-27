@@ -50,6 +50,30 @@ e2e(
   },
 );
 
+e2e("AC-3: taking tabs out of a group until one is left dissolves it", async (_browser, w) => {
+  await twoGroups(w);
+  await w.ungroup(github[0]!);
+  await w.waitForLayout([
+    "example.org/",
+    github[0]!,
+    { group: "github.com", tabs: [github[1]!, github[2]!] },
+    { group: "bbc.co.uk", tabs: bbc },
+  ]);
+  await w.ungroup(github[1]!);
+  await w.waitForLayout(["example.org/", ...github, { group: "bbc.co.uk", tabs: bbc }]);
+});
+
+e2e("AC-3: moving tabs into another group dissolves a group left with one", async (_browser, w) => {
+  await twoGroups(w);
+  await w.moveIntoGroup(github[0]!, "bbc.co.uk");
+  await w.moveIntoGroup(github[1]!, "bbc.co.uk");
+  await w.waitForLayout([
+    "example.org/",
+    github[2]!,
+    { group: "bbc.co.uk", tabs: [github[1]!, github[0]!, ...bbc] },
+  ]);
+});
+
 e2e("AC-3: a lone active tab keeps its group until the user switches away", async (_browser, w) => {
   await twoGroups(w);
   await w.activate(bbc[0]!);

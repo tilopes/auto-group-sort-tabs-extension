@@ -55,7 +55,7 @@ e2e("AC-6: a tab the user put into a group stays there", async (_browser, w) => 
   await w.moveIntoGroup("github.com/a", "bbc.co.uk");
   assert.deepEqual(await w.quietLayout(), [
     "example.org/",
-    { group: "github.com", tabs: ["github.com/c"] },
+    "github.com/c",
     "github.com/b",
     { group: "bbc.co.uk", tabs: ["github.com/a", ...bbc] },
   ]);
